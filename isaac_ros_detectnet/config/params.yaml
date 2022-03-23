@@ -1,0 +1,12 @@
+model_repository_paths:
+  - '/tmp/models'
+model_name: 'detectnet'
+label_names:
+  - 'nvidia_mug'
+coverage_threshold: 0.5
+bounding_box_scale: 35.0
+bounding_box_offset: 0.5
+eps: 0.5
+min_boxes: 5
+clustering_algorithm: 1
+verbose: False
