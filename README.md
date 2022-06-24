@@ -131,7 +131,7 @@ The `Train and Optimize` tookit from NVIDIA has all the tools you need to prepar
 
 ### Training object detection in simulation
 
-If you wish to generate training data from simulation using 3D models of the object classes you would like to detect, consider following the tutorial [Training Object detection from Simulation](https://docs.nvidia.com/isaac/isaac/doc/tutorials/training_in_docker.html).
+If you wish to generate training data from simulation using 3D models of the object classes you would like to detect, consider following the tutorial [Training Object detection from Simulation](https://docs.nvidia.com/isaac/doc/tutorials/training_in_docker.html).
 
 The tutorial will use simulation to create a dataset that can then be used to train a `DetectNet_v2` based model. It's an easy to use tool with full access to customize training parameters in a Jupyter notebook.
 
