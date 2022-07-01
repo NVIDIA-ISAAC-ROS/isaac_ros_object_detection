@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -7,16 +7,15 @@
 # distribution of this software and related documentation without an express
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
-# This script loads images from a folder and sends them to the detectnet pipeline for inference,
-# then renders the output boxes on top of the image and publishes the result as an image message
-# to visualize using rqt
+# This script listens for images and object detections on the image,
+# then renders the output boxes on top of the image and publishes
+# the result as an image message
 
-import os
 from pprint import pformat
 
 import cv2
 import cv_bridge
-import numpy as np
+import message_filters
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -34,31 +33,28 @@ class DetectNetVisualizer(Node):
         self._bridge = cv_bridge.CvBridge()
         self._processed_image_pub = self.create_publisher(
             Image, 'detectnet_processed_image',  self.QUEUE_SIZE)
-        self._image_pub = self.create_publisher(
-            Image, 'image',  10)
 
-        self._detections_subscription = self.create_subscription(
+        self._detections_subscription = message_filters.Subscriber(
+            self,
             Detection2DArray,
-            'detectnet/detections',
-            self.detections_callback,
-            10)
+            'detectnet/detections')
+        self._image_subscription = message_filters.Subscriber(
+            self,
+            Image,
+            'image')
 
-        self.create_timer(5, self.timer_callback)
-        script_path = os.path.dirname(os.path.realpath(__file__))
-        self.input_image_path = os.path.join(script_path, '../examples/demo.png')
+        self.time_synchronizer = message_filters.TimeSynchronizer(
+            [self._detections_subscription, self._image_subscription],
+            self.QUEUE_SIZE)
 
-    def timer_callback(self):
-        cv2_img = cv2.imread(os.path.join(self.input_image_path))
-        img = self._bridge.cv2_to_imgmsg(np.array(cv2_img), self.encoding)
-        self.current_img = img
-        self._image_pub.publish(img)
+        self.time_synchronizer.registerCallback(self.detections_callback)
 
-    def detections_callback(self, detections_msg):
-        cv2_img = self._bridge.imgmsg_to_cv2(self.current_img)
+    def detections_callback(self, detections_msg, img_msg):
+        cv2_img = self._bridge.imgmsg_to_cv2(img_msg)
         self.get_logger().info(pformat(detections_msg))
         for detection in detections_msg.detections:
-            center_x = detection.bbox.center.x
-            center_y = detection.bbox.center.y
+            center_x = detection.bbox.center.position.x
+            center_y = detection.bbox.center.position.y
             width = detection.bbox.size_x
             height = detection.bbox.size_y
 

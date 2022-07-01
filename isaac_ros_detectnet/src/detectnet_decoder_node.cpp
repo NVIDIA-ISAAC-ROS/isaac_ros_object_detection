@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA CORPORATION and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -33,13 +33,14 @@ const int kBoundingBoxParams = 4;
 const int kStride = 16;
 }   // namespace
 
+namespace nvidia
+{
 namespace isaac_ros
 {
 namespace detectnet
 {
 struct DetectNetDecoderNode::DetectNetDecoderImpl
 {
-  std::string header_frame_id_;
   const int32_t kTensorHeightIdx = 2;
   const int32_t kTensorWidthIdx = 3;
   const int32_t kTensorClassIdx = 1;
@@ -51,7 +52,6 @@ struct DetectNetDecoderNode::DetectNetDecoderImpl
   int clustering_algorithm_;
 
   DetectNetDecoderImpl(
-    const std::string & header_frame_id,
     const std::vector<std::string> & label_names,
     const float & coverage_threshold,
     const float & bounding_box_scale,
@@ -62,7 +62,6 @@ struct DetectNetDecoderNode::DetectNetDecoderImpl
     const float & threshold_athr,
     const int & clustering_algorithm)
   {
-    header_frame_id_ = header_frame_id;
     label_names_ = label_names;
     coverage_threshold_ = coverage_threshold;
     bounding_box_scale_ = bounding_box_scale;
@@ -79,8 +78,8 @@ struct DetectNetDecoderNode::DetectNetDecoderImpl
 
   void OnCallback(
     vision_msgs::msg::Detection2DArray & detections_msg,
-    const isaac_ros_nvengine_interfaces::msg::Tensor & bbox_tensor,
-    const isaac_ros_nvengine_interfaces::msg::Tensor & cov_tensor,
+    const isaac_ros_tensor_list_interfaces::msg::Tensor & bbox_tensor,
+    const isaac_ros_tensor_list_interfaces::msg::Tensor & cov_tensor,
     const std_msgs::msg::Header & tensor_header,
     const rclcpp::Logger & logger)
   {
@@ -94,8 +93,8 @@ struct DetectNetDecoderNode::DetectNetDecoderImpl
 
   void ConvertTensorToDetectionsArray(
     vision_msgs::msg::Detection2DArray & detections_msg,
-    const isaac_ros_nvengine_interfaces::msg::Tensor & bbox_tensor,
-    const isaac_ros_nvengine_interfaces::msg::Tensor & cov_tensor,
+    const isaac_ros_tensor_list_interfaces::msg::Tensor & bbox_tensor,
+    const isaac_ros_tensor_list_interfaces::msg::Tensor & cov_tensor,
     const std_msgs::msg::Header & tensor_header,
     const rclcpp::Logger & logger)
   {
@@ -108,8 +107,8 @@ struct DetectNetDecoderNode::DetectNetDecoderImpl
 
   void DecodeDetections(
     vision_msgs::msg::Detection2DArray & detections_msg,
-    const isaac_ros_nvengine_interfaces::msg::Tensor & bbox_tensor,
-    const isaac_ros_nvengine_interfaces::msg::Tensor & cov_tensor,
+    const isaac_ros_tensor_list_interfaces::msg::Tensor & bbox_tensor,
+    const isaac_ros_tensor_list_interfaces::msg::Tensor & cov_tensor,
     const std_msgs::msg::Header & tensor_header,
     const rclcpp::Logger & logger)
   {
@@ -254,15 +253,14 @@ struct DetectNetDecoderNode::DetectNetDecoderImpl
     std::vector<vision_msgs::msg::ObjectHypothesisWithPose> hypothesis_list;
     vision_msgs::msg::ObjectHypothesisWithPose hypothesis;
 
-    hypothesis.id = class_id;
-    hypothesis.score = static_cast<_Float64>(detection_score);
+    hypothesis.hypothesis.class_id = class_id;
+    hypothesis.hypothesis.score = static_cast<_Float64>(detection_score);
     hypothesis_list.push_back(hypothesis);
 
     detection_msg.header = tensor_header;
-    detection_msg.header.frame_id = header_frame_id_;
 
-    detection_msg.bbox.center.x = center_x;
-    detection_msg.bbox.center.y = center_y;
+    detection_msg.bbox.center.position.x = center_x;
+    detection_msg.bbox.center.position.y = center_y;
     detection_msg.bbox.center.theta = 0;
     detection_msg.bbox.size_x = size_x;
     detection_msg.bbox.size_y = size_y;
@@ -276,10 +274,11 @@ DetectNetDecoderNode::DetectNetDecoderNode(const rclcpp::NodeOptions options)
 : Node("detectnet_decoder_node", options),
   // Parameters
   queue_size_(declare_parameter<int>("queue_size", rmw_qos_profile_default.depth)),
-  header_frame_id_(declare_parameter<std::string>("frame_id", "")),
-  label_names_(declare_parameter<std::vector<std::string>>("label_names", {})),
+  label_names_(declare_parameter<std::vector<std::string>>(
+      "label_names",
+      std::vector<std::string>{})),
   coverage_threshold_(declare_parameter<float>("coverage_threshold", 0.6)),
-  bounding_box_scale_(declare_parameter<float>("bounding_box_square", 35.0)),
+  bounding_box_scale_(declare_parameter<float>("bounding_box_scale", 35.0)),
   bounding_box_offset_(declare_parameter<float>("bounding_box_offset", 0.5)),
 
   // Parameters for DBScan
@@ -290,7 +289,7 @@ DetectNetDecoderNode::DetectNetDecoderNode(const rclcpp::NodeOptions options)
   clustering_algorithm_(declare_parameter<int>("clustering_algorithm", 1)),
 
   // Subscribers
-  tensor_list_sub_(create_subscription<isaac_ros_nvengine_interfaces::msg::TensorList>(
+  tensor_list_sub_(create_subscription<isaac_ros_tensor_list_interfaces::msg::TensorList>(
       "tensor_sub", queue_size_,
       std::bind(&DetectNetDecoderNode::DetectNetDecoderCallback, this, std::placeholders::_1))),
   // Publishers
@@ -299,18 +298,14 @@ DetectNetDecoderNode::DetectNetDecoderNode(const rclcpp::NodeOptions options)
       1)),
   // Impl initialization
   impl_(std::make_unique<DetectNetDecoderImpl>(
-      header_frame_id_, label_names_, coverage_threshold_, bounding_box_scale_,
+      label_names_, coverage_threshold_, bounding_box_scale_,
       bounding_box_offset_, eps_, min_boxes_, enable_athr_filter_, threshold_athr_,
       clustering_algorithm_))
 {
-  // Received empty header frame id
-  if (header_frame_id_.empty()) {
-    RCLCPP_WARN(get_logger(), "Received empty frame id! Header will be published without one.");
-  }
 }
 
 void DetectNetDecoderNode::DetectNetDecoderCallback(
-  const isaac_ros_nvengine_interfaces::msg::TensorList::ConstSharedPtr tensor_list_msg)
+  const isaac_ros_tensor_list_interfaces::msg::TensorList::ConstSharedPtr tensor_list_msg)
 {
   if (tensor_list_msg->tensors.size() != 2) {
     RCLCPP_ERROR(
@@ -340,7 +335,8 @@ DetectNetDecoderNode::~DetectNetDecoderNode() = default;
 
 }  // namespace detectnet
 }  // namespace isaac_ros
+}  // namespace nvidia
 
 // Register as component
 #include "rclcpp_components/register_node_macro.hpp"
-RCLCPP_COMPONENTS_REGISTER_NODE(isaac_ros::detectnet::DetectNetDecoderNode)
+RCLCPP_COMPONENTS_REGISTER_NODE(nvidia::isaac_ros::detectnet::DetectNetDecoderNode)

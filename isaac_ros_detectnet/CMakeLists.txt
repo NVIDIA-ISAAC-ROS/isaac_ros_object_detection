@@ -32,9 +32,9 @@ message( STATUS "Architecture: ${ARCHITECTURE}" )
 
 add_library(nvdsinfer_dbscan SHARED IMPORTED)
 if( ${ARCHITECTURE} STREQUAL "x86_64" )
-  set_property(TARGET nvdsinfer_dbscan PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/dbscan/x86_64_cuda_11_4/libnvds_dbscan.so)
+  set_property(TARGET nvdsinfer_dbscan PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/dbscan/x86_64/libnvds_dbscan.so)
 elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
-  set_property(TARGET nvdsinfer_dbscan PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/dbscan/jetpack46_1/libnvds_dbscan.so)
+  set_property(TARGET nvdsinfer_dbscan PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/dbscan/jetpack50/libnvds_dbscan.so)
 endif()
 
 
@@ -45,8 +45,8 @@ target_compile_definitions(detectnet_decoder_node
 )
 target_link_libraries(detectnet_decoder_node nvdsinfer_dbscan)
 
-rclcpp_components_register_nodes(detectnet_decoder_node "isaac_ros::detectnet::DetectNetDecoderNode")
-set(node_plugins "${node_plugins}isaac_ros::detectnet::DetectNetDecoderNode;$<TARGET_FILE:detectnet_decoder_node>\n")
+rclcpp_components_register_nodes(detectnet_decoder_node "nvidia::isaac_ros::detectnet::DetectNetDecoderNode")
+set(node_plugins "${node_plugins}nvidia::isaac_ros::detectnet::DetectNetDecoderNode;$<TARGET_FILE:detectnet_decoder_node>\n")
 
 install(TARGETS detectnet_decoder_node
   ARCHIVE DESTINATION lib
@@ -73,6 +73,11 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   scripts/isaac_ros_detectnet_visualizer.py
   DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY
+  resources/rosbags/detectnet_rosbag
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_auto_package(INSTALL_TO_SHARE launch)

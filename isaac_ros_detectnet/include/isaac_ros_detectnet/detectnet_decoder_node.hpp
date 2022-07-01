@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
  *
  * NVIDIA CORPORATION and its licensors retain all intellectual property
  * and proprietary rights in and to this software, related documentation
@@ -15,10 +15,12 @@
 #include <string>
 #include <vector>
 
-#include "isaac_ros_nvengine_interfaces/msg/tensor_list.hpp"
+#include "isaac_ros_tensor_list_interfaces/msg/tensor_list.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+namespace nvidia
+{
 namespace isaac_ros
 {
 namespace detectnet
@@ -38,13 +40,11 @@ private:
  * @param tensor_list_msg The TensorList msg representing the detection list output by DetectNet
  */
   void DetectNetDecoderCallback(
-    const isaac_ros_nvengine_interfaces::msg::TensorList::ConstSharedPtr tensor_list_msg);
+    const isaac_ros_tensor_list_interfaces::msg::TensorList::ConstSharedPtr tensor_list_msg);
 
   // Queue size of subscriber
   int queue_size_;
 
-  // Frame id that the message should be in
-  std::string header_frame_id_;
   // A list of class labels in the order they are used in the model
   std::vector<std::string> label_names_;
   // coverage threshold to discard detections.
@@ -65,7 +65,8 @@ private:
   int clustering_algorithm_;
 
   // Subscribes to a Tensor that will be converted to a detection list
-  rclcpp::Subscription<isaac_ros_nvengine_interfaces::msg::TensorList>::SharedPtr tensor_list_sub_;
+  rclcpp::Subscription<isaac_ros_tensor_list_interfaces::msg::TensorList>::SharedPtr
+    tensor_list_sub_;
 
   // Publishes the processed Tensor as an array of detections (Detection2DArray)
   rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr detections_pub_;
@@ -75,5 +76,6 @@ private:
 
 }  // namespace detectnet
 }  // namespace isaac_ros
+}  // namespace nvidia
 
 #endif  // ISAAC_ROS_DETECTNET__DETECTNET_DECODER_NODE_HPP_
