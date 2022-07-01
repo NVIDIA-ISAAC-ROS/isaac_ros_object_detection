@@ -78,36 +78,38 @@ def generate_test_description():
             )
 
     encoder_node = ComposableNode(
+        name='DnnImageEncoderNode',
         package='isaac_ros_dnn_encoders',
-        plugin='isaac_ros::dnn_inference::DnnImageEncoderNode',
+        plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
         namespace=IsaacROSDetectNetPipelineTest.generate_namespace(_TEST_CASE_NAMESPACE),
         parameters=[{
             'network_image_width': 640,
-            'network_image_height': 368,
-            'network_image_encoding': 'rgb8',
-            'network_normalization_type': 'positive_negative',
-            'tensor_name': 'input_tensor'
+            'network_image_height': 368
         }],
         remappings=[('encoded_tensor', 'tensor_pub')]
     )
 
     triton_node = ComposableNode(
+        name='TritonNode',
         package='isaac_ros_triton',
         namespace=IsaacROSDetectNetPipelineTest.generate_namespace(_TEST_CASE_NAMESPACE),
-        plugin='isaac_ros::dnn_inference::TritonNode',
+        plugin='nvidia::isaac_ros::dnn_inference::TritonNode',
         parameters=[{
             'model_name': 'detectnet',
             'model_repository_paths': [model_dir_path],
             'input_tensor_names': ['input_tensor'],
             'input_binding_names': ['input_1'],
+            'input_tensor_formats': ['nitros_tensor_list_nchw_rgb_f32'],
             'output_tensor_names': ['output_cov', 'output_bbox'],
             'output_binding_names': ['output_cov/Sigmoid', 'output_bbox/BiasAdd'],
+            'output_tensor_formats': ['nitros_tensor_list_nhwc_rgb_f32'],
             'log_level': 0
         }])
 
     detectnet_decoder_node = ComposableNode(
+        name='DetectNetDecoderNode',
         package='isaac_ros_detectnet',
-        plugin='isaac_ros::detectnet::DetectNetDecoderNode',
+        plugin='nvidia::isaac_ros::detectnet::DetectNetDecoderNode',
         namespace=IsaacROSDetectNetPipelineTest.generate_namespace(_TEST_CASE_NAMESPACE),
         parameters=[{
             'frame_id': 'detectnet',
@@ -124,8 +126,12 @@ def generate_test_description():
         name='detectnet_container',
         namespace='',
         package='rclcpp_components',
-        executable='component_container',
-        composable_node_descriptions=[encoder_node, triton_node, detectnet_decoder_node],
+        executable='component_container_mt',
+        composable_node_descriptions=[
+            triton_node,
+            encoder_node,
+            detectnet_decoder_node
+        ],
         output='screen'
     )
 
@@ -136,7 +142,7 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
     """Validates a DetectNet model with randomized weights with a sample output from Python."""
 
     filepath = pathlib.Path(os.path.dirname(__file__))
-    MODEL_GENERATION_TIMEOUT_SEC = 5
+    MODEL_GENERATION_TIMEOUT_SEC = 60
     INIT_WAIT_SEC = 1
     MODEL_PATH = filepath.joinpath('dummy_model/detectnet.engine')
 
@@ -146,6 +152,8 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
 
         while (time.time() - start_time) < self.MODEL_GENERATION_TIMEOUT_SEC:
             time.sleep(self.INIT_WAIT_SEC)
+
+        self.node._logger.info('Starting to test')
 
         """Expect the node to segment an image."""
         self.generate_namespace_lookup(
@@ -195,10 +203,12 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
                              expected_detections[0]['width'], 'Received incorrect width')
             self.assertEqual(pytest.approx(detection_list[0].bbox.size_y, pixel_tolerance),
                              expected_detections[0]['height'], 'Received incorrect height')
-            self.assertEqual(pytest.approx(detection_list[0].bbox.center.x, pixel_tolerance),
-                             expected_detections[0]['center']['x'], 'Received incorrect center')
-            self.assertEqual(pytest.approx(detection_list[0].bbox.center.y, pixel_tolerance),
-                             expected_detections[0]['center']['y'], 'Received incorrect center')
+            self.assertEqual(
+                pytest.approx(detection_list[0].bbox.center.position.x, pixel_tolerance),
+                expected_detections[0]['center']['x'], 'Received incorrect center')
+            self.assertEqual(
+                pytest.approx(detection_list[0].bbox.center.position.y, pixel_tolerance),
+                expected_detections[0]['center']['y'], 'Received incorrect center')
         finally:
             self.node.destroy_subscription(detectnet_detections)
             self.node.destroy_publisher(image_pub)

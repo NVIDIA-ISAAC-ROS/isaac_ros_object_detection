@@ -1,6 +1,6 @@
 # Ignore all pycache files
 **/__pycache__/**
-build/
-install/
-install_aarch64/
-log/
+
+# Ignore TensorRT plan files
+*.plan
+*.engine
