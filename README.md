@@ -3,7 +3,7 @@
 <div align="center"><img alt="Isaac ROS DetectNet Sample Output" src="resources/header-image.png" width="400px"/></div>
 
 ## Overview
-This repository provides a GPU-accelerated package for object detection based on [DetectNet](https://developer.nvidia.com/blog/detectnet-deep-neural-network-object-detection-digits/). Using a trained deep-learning model and a monocular camera, the `isaac_ros_detectnet` package can detect objects of interest in an image and provide bounding boxes. [DetectNet](https://catalog.ngc.nvidia.com/orgs/nvidia/models/tlt_pretrained_detectnet_v2/version) is similar to other popular object detection models such as YOLOV3, FasterRCNN, SSD, and others while being efficient with multiple object classes in large images.
+This repository provides a GPU-accelerated package for object detection based on [DetectNet](https://developer.nvidia.com/blog/detectnet-deep-neural-network-object-detection-digits/). Using a trained deep-learning model and a monocular camera, the `isaac_ros_detectnet` package can detect objects of interest in an image and provide bounding boxes. DetectNet is similar to other popular object detection models such as YOLOV3, FasterRCNN, SSD, and others while being efficient with multiple object classes in large images.
 
 ### ROS2 Graph Configuration
 
