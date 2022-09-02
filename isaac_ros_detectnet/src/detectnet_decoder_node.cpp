@@ -108,7 +108,7 @@ DetectNetDecoderNode::DetectNetDecoderNode(const rclcpp::NodeOptions & options)
   dbscan_threshold_athr_(declare_parameter<double>("dbscan_threshold_athr", 0.0)),
   dbscan_clustering_algorithm_(declare_parameter<int>("dbscan_clustering_algorithm", 1)),
   bounding_box_scale_(declare_parameter<double>("bounding_box_scale", 35.0)),
-  bounding_box_offset_(declare_parameter<double>("bounding_box_offset", 0.5))
+  bounding_box_offset_(declare_parameter<double>("bounding_box_offset", 0.0))
 {
   RCLCPP_DEBUG(get_logger(), "[DetectNetDecoderNode] Constructor");
 
