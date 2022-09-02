@@ -11,8 +11,6 @@
 # then renders the output boxes on top of the image and publishes
 # the result as an image message
 
-from pprint import pformat
-
 import cv2
 import cv_bridge
 import message_filters
@@ -26,7 +24,6 @@ class DetectNetVisualizer(Node):
     QUEUE_SIZE = 10
     color = (0, 255, 0)
     bbox_thickness = 1
-    encoding = 'bgr8'
 
     def __init__(self):
         super().__init__('detectnet_visualizer')
@@ -51,19 +48,22 @@ class DetectNetVisualizer(Node):
 
     def detections_callback(self, detections_msg, img_msg):
         cv2_img = self._bridge.imgmsg_to_cv2(img_msg)
-        self.get_logger().info(pformat(detections_msg))
         for detection in detections_msg.detections:
             center_x = detection.bbox.center.position.x
             center_y = detection.bbox.center.position.y
             width = detection.bbox.size_x
             height = detection.bbox.size_y
 
-            min_pt = (round(center_x - (width / 2.0)), round(center_y - (height / 2.0)))
-            max_pt = (round(center_x + (width / 2.0)), round(center_y + (height / 2.0)))
+            min_pt = (round(center_x - (width / 2.0)),
+                      round(center_y - (height / 2.0)))
+            max_pt = (round(center_x + (width / 2.0)),
+                      round(center_y + (height / 2.0)))
 
-            cv2.rectangle(cv2_img, min_pt, max_pt, self.color, self.bbox_thickness)
+            cv2.rectangle(cv2_img, min_pt, max_pt,
+                          self.color, self.bbox_thickness)
 
-        processed_img = self._bridge.cv2_to_imgmsg(cv2_img, encoding=self.encoding)
+        processed_img = self._bridge.cv2_to_imgmsg(
+            cv2_img, encoding=img_msg.encoding)
         self._processed_image_pub.publish(processed_img)
 
 
