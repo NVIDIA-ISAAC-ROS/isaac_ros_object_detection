@@ -39,7 +39,7 @@ components:
     dbscan_threshold_athr: 0.0
     dbscan_clustering_algorithm: 1
     bounding_box_scale: 35.0
-    bounding_box_offset: 0.5
+    bounding_box_offset: 0.0
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: tensorlist_in

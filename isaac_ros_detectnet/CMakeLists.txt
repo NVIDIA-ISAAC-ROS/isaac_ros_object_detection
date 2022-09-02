@@ -23,8 +23,6 @@ find_package(ament_cmake_python REQUIRED)
 
 ament_auto_find_build_dependencies()
 
-# NVDSINFER_DBSCAN
-
 execute_process(COMMAND uname -m COMMAND tr -d '\n'
   OUTPUT_VARIABLE ARCHITECTURE
 )
@@ -66,7 +64,7 @@ endif()
 # Visualizer python scripts
 
 ament_python_install_package(${PROJECT_NAME})
-# Install Python executables
+
 install(PROGRAMS
   scripts/isaac_ros_detectnet_visualizer.py
   DESTINATION lib/${PROJECT_NAME}
@@ -77,6 +75,6 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
-ament_auto_package(INSTALL_TO_SHARE launch)
+ament_auto_package(INSTALL_TO_SHARE launch config)
 
 find_package(vision_msgs REQUIRED)

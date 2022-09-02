@@ -2,7 +2,7 @@ model_repository_paths:
   - '/tmp/models'
 model_name: 'detectnet'
 bounding_box_scale: 35.0
-bounding_box_offset: 0.5
+bounding_box_offset: 0.0
 
 # post filtering parameters
 enable_confidence_threshold: true

@@ -124,7 +124,7 @@ def generate_test_description():
             'enable_bbox_area_threshold': True,
             'enable_dbscan_clustering': True,
             'bounding_box_scale': 35.0,
-            'bounding_box_offset': 0.5,
+            'bounding_box_offset': 0.0,
             'confidence_threshold': 0.6,
             'min_bbox_area': 100.0,
             'dbscan_confidence_threshold': 0.6,
