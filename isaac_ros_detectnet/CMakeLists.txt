@@ -30,20 +30,17 @@ execute_process(COMMAND uname -m COMMAND tr -d '\n'
 )
 message( STATUS "Architecture: ${ARCHITECTURE}" )
 
-add_library(nvdsinfer_dbscan SHARED IMPORTED)
-if( ${ARCHITECTURE} STREQUAL "x86_64" )
-  set_property(TARGET nvdsinfer_dbscan PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/dbscan/x86_64/libnvds_dbscan.so)
-elseif( ${ARCHITECTURE} STREQUAL "aarch64" )
-  set_property(TARGET nvdsinfer_dbscan PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/dbscan/jetpack50/libnvds_dbscan.so)
-endif()
-
+# Install config directory
+install(
+  DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
 
 # Decoder node
 ament_auto_add_library(detectnet_decoder_node SHARED src/detectnet_decoder_node.cpp)
 target_compile_definitions(detectnet_decoder_node
   PRIVATE "COMPOSITION_BUILDING_DLL"
 )
-target_link_libraries(detectnet_decoder_node nvdsinfer_dbscan)
 
 rclcpp_components_register_nodes(detectnet_decoder_node "nvidia::isaac_ros::detectnet::DetectNetDecoderNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::detectnet::DetectNetDecoderNode;$<TARGET_FILE:detectnet_decoder_node>\n")
@@ -63,7 +60,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 
   find_package(launch_testing_ament_cmake REQUIRED)
-  add_launch_test(test/isaac_ros_detectnet_pol_test.py TIMEOUT "300")
+  add_launch_test(test/isaac_ros_detectnet_pol_test.py TIMEOUT "400")
 endif()
 
 # Visualizer python scripts

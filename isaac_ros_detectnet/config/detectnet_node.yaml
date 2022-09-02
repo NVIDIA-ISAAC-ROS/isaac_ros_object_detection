@@ -1,0 +1,83 @@
+%YAML 1.2
+# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+---
+name: detectnet_decoder
+components:
+- name: tensorlist_in
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 12
+    policy: 0
+- name: detections_out
+  type: nvidia::gxf::DoubleBufferTransmitter
+  parameters:
+    capacity: 12
+    policy: 0
+- name: allocator
+  type: nvidia::gxf::UnboundedAllocator
+- name: detectnet_decoder
+  type: nvidia::isaac_ros::DetectnetDecoder
+  parameters:
+    tensorlist_receiver: tensorlist_in
+    detections_transmitter: detections_out
+    label_list: ["person", "bag", "face"]
+    enable_confidence_threshold: true
+    enable_bbox_area_threshold: true
+    enable_dbscan_clustering: true
+    confidence_threshold: 0.35
+    min_bbox_area: 100.0
+    dbscan_confidence_threshold: 0.35
+    dbscan_eps: 0.7
+    dbscan_min_boxes: 1
+    dbscan_enable_athr_filter: 0
+    dbscan_threshold_athr: 0.0
+    dbscan_clustering_algorithm: 1
+    bounding_box_scale: 35.0
+    bounding_box_offset: 0.5
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: tensorlist_in
+    min_size: 1
+- type: nvidia::gxf::DownstreamReceptiveSchedulingTerm
+  parameters:
+    transmitter: detections_out
+    min_size: 1
+---
+name: vault
+components:
+- name: signal
+  type: nvidia::gxf::DoubleBufferReceiver
+  parameters:
+    capacity: 1
+    policy: 0
+- type: nvidia::gxf::MessageAvailableSchedulingTerm
+  parameters:
+    receiver: signal
+    min_size: 1
+- name: vault
+  type: nvidia::gxf::Vault
+  parameters:
+    source: signal
+    max_waiting_count: 1
+    drop_waiting: false
+---
+components:
+- name: edge0
+  type: nvidia::gxf::Connection
+  parameters:
+    source: detectnet_decoder/detections_out
+    target: vault/signal
+---
+components:
+- type: nvidia::gxf::GreedyScheduler
+  parameters:
+    clock: clock
+    stop_on_deadlock: false
+- name: clock
+  type: nvidia::gxf::RealtimeClock

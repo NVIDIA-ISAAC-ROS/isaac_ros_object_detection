@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "isaac_ros_nitros/nitros_node.hpp"
 #include "isaac_ros_tensor_list_interfaces/msg/tensor_list.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -26,52 +27,55 @@ namespace isaac_ros
 namespace detectnet
 {
 
-class DetectNetDecoderNode : public rclcpp::Node
+class DetectNetDecoderNode : public nitros::NitrosNode
 {
 public:
-  explicit DetectNetDecoderNode(const rclcpp::NodeOptions options = rclcpp::NodeOptions());
+  explicit DetectNetDecoderNode(const rclcpp::NodeOptions &);
+
   ~DetectNetDecoderNode();
 
+  DetectNetDecoderNode(const DetectNetDecoderNode &) = delete;
+
+  DetectNetDecoderNode & operator=(const DetectNetDecoderNode &) = delete;
+
+  // The callback to be implemented by users for any required initialization
+  void preLoadGraphCallback() override;
+  void postLoadGraphCallback() override;
+
 private:
-/**
- * @brief Callback to decode a tensor list output by a DetectNet architecture
- *        and then publish a detection list
- *
- * @param tensor_list_msg The TensorList msg representing the detection list output by DetectNet
- */
-  void DetectNetDecoderCallback(
-    const isaac_ros_tensor_list_interfaces::msg::TensorList::ConstSharedPtr tensor_list_msg);
-
-  // Queue size of subscriber
-  int queue_size_;
-
-  // A list of class labels in the order they are used in the model
-  std::vector<std::string> label_names_;
-  // coverage threshold to discard detections.
-  // Detections with lower coverage than the threshold will be discarded
-  float coverage_threshold_;
-  // Bounding box normalization for both X and Y dimensions. This value is set in the DetectNetv2
-  // training specification.
-  float bounding_box_scale_;
-  // Bounding box offset for both X and Y dimensions. This value is set in the DetectNetv2
-  // training specification.
-  float bounding_box_offset_;
-
-  // Parameters for DBscan.
-  float eps_;
-  int min_boxes_;
-  int enable_athr_filter_;
-  float threshold_athr_;
-  int clustering_algorithm_;
-
-  // Subscribes to a Tensor that will be converted to a detection list
-  rclcpp::Subscription<isaac_ros_tensor_list_interfaces::msg::TensorList>::SharedPtr
-    tensor_list_sub_;
-
-  // Publishes the processed Tensor as an array of detections (Detection2DArray)
-  rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr detections_pub_;
-  struct DetectNetDecoderImpl;
-  std::unique_ptr<DetectNetDecoderImpl> impl_;  // Pointer to implementation
+  // List of string labels for the specific network
+  const std::vector<std::string> label_list_;
+  // Flag to enable minimum confidence thresholding
+  const bool enable_confidence_threshold_;
+  // Flag to enable minimum bounding box area thresholding
+  const bool enable_bbox_area_threshold_;
+  // Flag to enable Dbscan clustering
+  const bool enable_dbscan_clustering_;
+  // The min value of confidence used to threshold detections before clustering
+  const double confidence_threshold_;
+  // The min value of bouding box area used to threshold detections before clustering
+  const double min_bbox_area_;
+  // Minimum score in a cluster for the cluster to be considered an object
+  // during grouping. Different clustering may cause the algorithm
+  // to use different scores
+  const double dbscan_confidence_threshold_;
+  // Holds the epsilon to control merging of overlapping boxes.
+  // Refer to OpenCV groupRectangles and DBSCAN documentation for more information on epsilon.
+  const double dbscan_eps_;
+  // Holds the minimum number of boxes in a cluster to be considered
+  // an object during grouping using DBSCAN
+  const int dbscan_min_boxes_;
+  // true enables the area-to-hit ratio (ATHR) filter.
+  // The ATHR is calculated as: ATHR = sqrt(clusterArea) / nObjectsInCluster.
+  const int dbscan_enable_athr_filter_;
+  // Holds the area-to-hit ratio threshold
+  const double dbscan_threshold_athr_;
+  // The clustering algorithm used. 1 => NvDsInferDBScanCluster 2 => NvDsInferDBScanClusterHybrid
+  const int dbscan_clustering_algorithm_;
+  // The scale parameter, which should match the training configuration
+  const double bounding_box_scale_;
+  // Bounding box offset for both X and Y dimensions
+  const double bounding_box_offset_;
 };
 
 }  // namespace detectnet

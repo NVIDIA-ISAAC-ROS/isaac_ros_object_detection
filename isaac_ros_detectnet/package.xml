@@ -13,32 +13,29 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_detectnet</name>
-  <version>0.9.0</version>
+  <version>0.11.0</version>
   <description>DetectNet model processing</description>
 
-  <maintainer email="hemals@nvidia.com">Hemal Shah</maintainer>
+  <maintainer email="ashwinvk@nvidia.com">Ashwin Varghese Kuruttukulam</maintainer>
   <license>NVIDIA Isaac ROS Software License</license>
-  <url type="website">https://developer.nvidia.com/isaac-ros-gems/</url>
-  <author>Herón Ordóñez Guillén</author>
-  <author>Jay Monga</author>
+  <url type="website">https://developer.nvidia.com/isaac-ros/</url>
+  <author>Ashwin Varghese Kuruttukulam</author>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-  <buildtool_depend>ament_cmake_python</buildtool_depend>
-
-  <build_depend>eigen</build_depend>
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
 
   <depend>rclcpp</depend>
-  <depend>rclpy</depend>
   <depend>rclcpp_components</depend>
   <depend>vision_msgs</depend>
-  <depend>isaac_ros_dnn_encoders</depend>
   <depend>isaac_ros_tensor_list_interfaces</depend>
+  <depend>isaac_ros_nitros</depend>
+  <depend>isaac_ros_nitros_detection2_d_array_type</depend>
+  <depend>isaac_ros_nitros_tensor_list_type</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <test_depend>isaac_ros_test</test_depend>
-
-  <exec_depend>isaac_ros_triton</exec_depend>
+  <test_depend>isaac_ros_dnn_encoders</test_depend>
+  <test_depend>isaac_ros_triton</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

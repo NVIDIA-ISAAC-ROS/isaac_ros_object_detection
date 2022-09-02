@@ -9,7 +9,7 @@ enable_confidence_threshold: true
 enable_bbox_area_threshold: true
 enable_dbscan_clustering: true
 confidence_threshold: 0.35
-min_bbox_area: 100.0
+min_bbox_area: 10000.0
 dbscan_confidence_threshold: 0.35
 dbscan_eps: 0.7
 dbscan_min_boxes: 1

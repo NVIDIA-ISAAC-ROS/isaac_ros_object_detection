@@ -1,10 +1,22 @@
 # Isaac ROS Object Detection
 
-<div align="center"><img alt="Isaac ROS DetectNet Sample Output" src="resources/header-image.png" width="400px"/></div>
+<div align="center"><img alt="Isaac ROS DetectNet Sample Output" src="resources/header-image.png" width="600px"/></div>
 
 ## Overview
 This repository provides a GPU-accelerated package for object detection based on [DetectNet](https://developer.nvidia.com/blog/detectnet-deep-neural-network-object-detection-digits/). Using a trained deep-learning model and a monocular camera, the `isaac_ros_detectnet` package can detect objects of interest in an image and provide bounding boxes. DetectNet is similar to other popular object detection models such as YOLOV3, FasterRCNN, SSD, and others while being efficient with multiple object classes in large images.
 
+### Isaac ROS NITROS Acceleration
+This package is powered by [NVIDIA Isaac Transport for ROS (NITROS)](https://developer.nvidia.com/blog/improve-perception-performance-for-ros-2-applications-with-nvidia-isaac-transport-for-ros/), which leverages type adaptation and negotiation to optimize message formats and dramatically accelerate communication between participating nodes.
+
+### Performance
+The performance results of benchmarking the prepared pipelines in this package on supported platforms are below:
+
+
+| Pipeline                   | AGX Orin  | AGX Xavier | x86_64 w/ RTX 3060 Ti |
+| -------------------------- | --------- | ---------- | --------------------- |
+| Isaac ROS Detectnet (544p) | 104 fps   | 79 fps     | 104 fps               |
+
+> **Note:** These numbers are reported with defaults parameter values found in [params.yaml](./isaac_ros_detectnet/config/params.yaml).
 ### ROS2 Graph Configuration
 
 To run the DetectNet object detection inference, the following ROS2 nodes should be set up and running:
@@ -22,6 +34,8 @@ To run the DetectNet object detection inference, the following ROS2 nodes should
 ## Table of Contents
 - [Isaac ROS Object Detection](#isaac-ros-object-detection)
   - [Overview](#overview)
+    - [Isaac ROS NITROS Acceleration](#isaac-ros-nitros-acceleration)
+    - [Performance](#performance)
     - [ROS2 Graph Configuration](#ros2-graph-configuration)
   - [Table of Contents](#table-of-contents)
   - [Latest Update](#latest-update)
@@ -44,15 +58,17 @@ To run the DetectNet object detection inference, the following ROS2 nodes should
   - [Updates](#updates)
 
 ## Latest Update
-Update 2022-06-30: Support for ROS2 Humble and miscellaneous bug fixes
+Update 2022-08-31: Update to use [NVIDIA Isaac Transport for ROS (NITROS)](https://developer.nvidia.com/blog/improve-perception-performance-for-ros-2-applications-with-nvidia-isaac-transport-for-ros/) and to be compatible with JetPack 5.0.2
 
 ## Supported Platforms
 This package is designed and tested to be compatible with ROS2 Humble running on [Jetson](https://developer.nvidia.com/embedded-computing) or an x86_64 system with an NVIDIA GPU.
 
+> **Note**: Versions of ROS2 earlier than Humble are **not** supported. This package depends on specific ROS2 implementation features that were only introduced beginning with the Humble release.
+
 
 | Platform | Hardware                                                                                                                                                                                                | Software                                                                                                             | Notes                                                                                                                                                                                   |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jetson   | [Jetson Orin](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)<br/>[Jetson Xavier](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-agx-xavier/) | [JetPack 5.0.1 DP](https://developer.nvidia.com/embedded/jetpack)                                                    | For best performance, ensure that [power settings](https://docs.nvidia.com/jetson/archives/r34.1/DeveloperGuide/text/SD/PlatformPowerAndPerformance.html) are configured appropriately. |
+| Jetson   | [Jetson Orin](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)<br/>[Jetson Xavier](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-agx-xavier/) | [JetPack 5.0.2](https://developer.nvidia.com/embedded/jetpack)                                                       | For best performance, ensure that [power settings](https://docs.nvidia.com/jetson/archives/r34.1/DeveloperGuide/text/SD/PlatformPowerAndPerformance.html) are configured appropriately. |
 | x86_64   | NVIDIA GPU                                                                                                                                                                                              | [Ubuntu 20.04+](https://releases.ubuntu.com/20.04/) <br> [CUDA 11.6.1+](https://developer.nvidia.com/cuda-downloads) |
 
 
@@ -105,22 +121,16 @@ To simplify development, we strongly recommend leveraging the Isaac ROS Dev Dock
     ```bash
     colcon test --executor sequential
     ```
-7. In this package, you will find a pre-trained DetectNet model that was trained solely for detecting tennis balls using the described simulation method. Please use this model only for verification or exploring the pipeline.
-
-   > **Note**: Do not use this tennis ball detection model in a production environment.
-
-   Run the following shell script to setup the pre-trained DetectNet model **inside the Docker container**:
-
-   ```bash
-   cd /workspaces/isaac_ros-dev/src/isaac_ros_object_detection && \
-     ./isaac_ros_detectnet/scripts/setup_demo.sh
-   ```
+7. Run the quickstart setup script which will download the [PeopleNet Model](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/peoplenet) from NVIDIA GPU Cloud(NGC)
+    ```bash
+    cd /workspaces/isaac_ros-dev/src/isaac_ros_object_detection/isaac_ros_detectnet && \
+      ./scripts/setup_model.sh --height 632 --width 1200 --config-file resources/quickstart_config.pbtxt
+    ```
 
 8. Run the following launch file to spin up a demo of this package:
-
     ```bash
     cd /workspaces/isaac_ros-dev && \
-      ros2 launch isaac_ros_detectnet isaac_ros_detectnet_demo.launch.py
+      ros2 launch isaac_ros_detectnet isaac_ros_detectnet_quickstart.launch.py
     ```
 9.  Visualize and validate the output of the package in the `rqt_image_view` window. After about a minute, your output should look like this:
 
@@ -129,7 +139,7 @@ To simplify development, we strongly recommend leveraging the Isaac ROS Dev Dock
 ## Next Steps
 ### Try More Examples
 To continue your exploration, check out the following suggested examples:
-- [Train new `Detectnet` models in simulation](docs/training-detectnet-model-in-sim.md)
+- [Tutorial with Isaac Sim](docs/tutorial-isaac-sim.md)
 
 ### Use Different Models
 Click [here](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_dnn_inference/blob/main/docs/model-preparation.md) for more information about how to use NGC models.
@@ -152,23 +162,24 @@ To customize your development environment, reference [this guide](https://github
 #### Usage
 
 ```bash
-ros2 launch isaac_ros_detectnet isaac_ros_detectnet.launch.py queue_size:=<size of the buffer> label_names:=<list of labels> coverage_threshold:=<minimum coverage value> bounding_box_scale:=<bounding box normalization value> bounding_box_offset:=<XY offset for bounding box> eps:=<epsilon distance> min_boxes:=<minimum returned boxes> enable_athr_filter:=<area-to-hit-ratio filter> threshold_athr:=<area-to-hit ratio threshold> clustering_algorithm:=<choice of clustering algorithm>
+ros2 launch isaac_ros_detectnet isaac_ros_detectnet.launch.py label_list:=<list of labels> enable_confidence_threshold:=<enable confidence thresholding> enable_bbox_area_threshold:=<enable bbox size thresholding> enable_dbscan_clustering:=<enable dbscan clustering> confidence_threshold:=<minimum confidence value> min_bbox_area:=<minimum bbox area value> dbscan_confidence_threshold:=<minimum confidence for dbscan algorithm> dbscan_eps:=<epsilon distance> dbscan_min_boxes:=<minimum returned boxes> dbscan_enable_athr_filter:=<area-to-hit-ratio filter> dbscan_threshold_athr:=<area-to-hit ratio threshold> dbscan_clustering_algorithm:=<choice of clustering algorithm> bounding_box_scale:=<bounding box normalization value> bounding_box_offset:=<XY offset for bounding box>
 ```
 
 #### ROS Parameters
 
-| ROS Parameter          | Type          | Default | Description                                                                                                                                                                                                             |
-| ---------------------- | ------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `queue_size`           | `int`         | `10`    | Size of buffer for incoming detection tensors.                                                                                                                                                                          |
-| `label_names`          | `string list` | `[]`    | A list of strings with the names of the classes in the order they are used in the model. Keep the order of the list consistent with the training configuration. <br/> E.g. `['nvidia_mug', 'car']`                      |
-| `coverage_threshold`   | `float`       | `0.6`   | A minimum coverage value for the boxes to be considered. Bounding boxes with lower value than this will not be in the output.                                                                                           |
-| `bounding_box_scale`   | `float`       | `35.0`  | The scale parameter, which should match the training configuration.                                                                                                                                                     |
-| `bounding_box_offset`  | `float`       | `0.5`   | Bounding box offset for both X and Y dimensions.                                                                                                                                                                        |
-| `eps`                  | `float`       | `0.01`  | Epsilon value to use.                                                                                                                                                                                                   |
-| `min_boxes`            | `int`         | `1`     | The minimum number of boxes to return.                                                                                                                                                                                  |
-| `enable_athr_filter`   | `int`         | `0`     | Enables the area-to-hit ratio (ATHR) filter. The ATHR is calculated as: **ATHR = sqrt(clusterArea) / nObjectsInCluster.**                                                                                               |
-| `threshold_athr`       | `float`       | `0.0`   | The `area-to-hit` ratio threshold.                                                                                                                                                                                      |
-| `clustering_algorithm` | `int`         | `1`     | The clustering algorithm selection. (`1`: Enables DBScan clustering, `2`: Enables Hybrid clustering, resulting in more boxes that will need to be processed with NMS or other means of reducing overlapping detections. |
+| ROS Parameter                 | Type       | Default                     | Description                                                                                                                                                                                                             |
+| ----------------------------- | ---------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `label_list`                  | `string[]` | `{"person", "bag", "face"}` | The list of labels. These are loaded from labels.txt(downloaded with the model)                                                                                                                                         |
+| `confidence_threshold`        | `double`   | `0.35`                      | The min value of confidence used to threshold detections before clustering                                                                                                                                              |
+| `min_bbox_area`               | `double`   | `100`                       | The min value of bouding box area used to threshold detections before clustering                                                                                                                                        |
+| `dbscan_confidence_threshold` | `double`   | `0.35`                      | Holds the epsilon to control merging of overlapping boxes. Refer to OpenCV groupRectangles and DBSCAN documentation for more information on epsilon.                                                                    |
+| `dbscan_eps`                  | `double`   | `0.7`                       | Holds the epsilon to control merging of overlapping boxes. Refer to OpenCV groupRectangles and DBSCAN documentation for more information on epsilon.                                                                    |
+| `dbscan_min_boxes`            | `int`      | `1`                         | The minimum number of boxes to return.                                                                                                                                                                                  |
+| `dbscan_enable_athr_filter`   | `int`      | `0`                         | Enables the area-to-hit ratio (ATHR) filter. The ATHR is calculated as: **ATHR = sqrt(clusterArea) / nObjectsInCluster.**                                                                                               |
+| `dbscan_threshold_athr`       | `double`   | `0.0`                       | The `area-to-hit` ratio threshold.                                                                                                                                                                                      |
+| `dbscan_clustering_algorithm` | `int`      | `1`                         | The clustering algorithm selection. (`1`: Enables DBScan clustering, `2`: Enables Hybrid clustering, resulting in more boxes that will need to be processed with NMS or other means of reducing overlapping detections. |
+| `bounding_box_scale`          | `double`   | `35.0`                      | The scale parameter, which should match the training configuration.                                                                                                                                                     |
+| `bounding_box_offset`         | `double`   | `0.5`                       | Bounding box offset for both X and Y dimensions.                                                                                                                                                                        |
 
 #### ROS Topics Subscribed
 | ROS Topic    | Interface                                                                                                                                                         | Description                                                     |
@@ -189,7 +200,8 @@ For solutions to problems with Isaac ROS, please check [here](https://github.com
 For solutions to problems with using DNN models, please check [here](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_dnn_inference/blob/main/docs/troubleshooting.md).
 
 ## Updates
-| Date       | Changes                                             |
-| ---------- | --------------------------------------------------- |
-| 2022-06-30 | Support for ROS2 Humble and miscellaneous bug fixes |
-| 2022-03-21 | Initial release                                     |
+| Date       | Changes                                                                               |
+| ---------- | ------------------------------------------------------------------------------------- |
+| 2022-08-31 | Update to use NITROS for improved performance and to be compatible with JetPack 5.0.2 |
+| 2022-06-30 | Support for ROS2 Humble and miscellaneous bug fixes                                   |
+| 2022-03-21 | Initial release                                                                       |

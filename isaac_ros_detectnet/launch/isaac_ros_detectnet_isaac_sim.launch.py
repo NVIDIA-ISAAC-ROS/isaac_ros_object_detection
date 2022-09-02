@@ -8,15 +8,15 @@
 
 import os
 
-import launch
-from launch_ros.actions import ComposableNodeContainer
+from launch import LaunchDescription
+from launch_ros.actions import ComposableNodeContainer, Node
 from launch_ros.descriptions import ComposableNode
 
 
 def generate_launch_description():
     """Generate launch description for testing relevant nodes."""
     launch_dir_path = os.path.dirname(os.path.realpath(__file__))
-    config = launch_dir_path + '/../config/params.yaml'
+    config = launch_dir_path + '/../config/params_isaac_sim.yaml'
     model_dir_path = '/tmp/models'
 
     # Read labels from text file
@@ -29,10 +29,11 @@ def generate_launch_description():
         package='isaac_ros_dnn_encoders',
         plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
         parameters=[{
-            'network_image_width': 1200,
-            'network_image_height': 632
+            'network_image_width': 1280,
+            'network_image_height': 720
         }],
-        remappings=[('encoded_tensor', 'tensor_pub')]
+        remappings=[('encoded_tensor', 'tensor_pub'),
+                    ('image', 'rgb_left')]
     )
 
     triton_node = ComposableNode(
@@ -61,7 +62,7 @@ def generate_launch_description():
                     }]
     )
 
-    container = ComposableNodeContainer(
+    detectnet_container = ComposableNodeContainer(
         name='detectnet_container',
         namespace='detectnet_container',
         package='rclcpp_components',
@@ -71,4 +72,23 @@ def generate_launch_description():
         output='screen'
     )
 
-    return launch.LaunchDescription([container])
+    detectnet_visualizer_node = Node(
+        package='isaac_ros_detectnet',
+        executable='isaac_ros_detectnet_visualizer.py',
+        name='detectnet_visualizer',
+        remappings=[('image', 'rgb_left')]
+
+    )
+
+    rqt_image_view_node = Node(
+        package='rqt_image_view',
+        executable='rqt_image_view',
+        name='image_view',
+        arguments=['/detectnet_processed_image'],
+        parameters=[
+                {'my_str': 'rgb8'},
+        ]
+    )
+
+    return LaunchDescription([detectnet_container, detectnet_visualizer_node, rqt_image_view_node
+                              ])
