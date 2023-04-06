@@ -61,34 +61,33 @@ def generate_test_description():
         label_list = fd.read().strip().splitlines()
 
     # Generate engine file using tao-converter
-    if not os.path.isfile(engine_file_path):
-        print('Generating engine file using tao-converter...')
-        tao_converter_args = [
-            '-k', '"object-detection-from-sim-pipeline"',
-            '-d', '3,368,640',
-            '-t', 'fp16',
-            '-p', 'input_1,1x3x368x640,1x3x368x640,1x3x368x640',
-            '-e', engine_file_path,
-            '-o', 'output_cov/Sigmoid,output_bbox/BiasAdd',
-            f'{model_dir_path}/{model_name}/1/resnet18_detector.etlt'
-        ]
-        tao_converter_executable = '/opt/nvidia/tao/tao-converter'
-        print('Running command:\n' +
-              ' '.join([tao_converter_executable] + tao_converter_args))
-        start_time = time.time()
-        result = subprocess.run(
-            [tao_converter_executable] + tao_converter_args,
-            env=os.environ,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+    print('Generating engine file using tao-converter...')
+    tao_converter_args = [
+        '-k', '"object-detection-from-sim-pipeline"',
+        '-d', '3,368,640',
+        '-t', 'fp16',
+        '-p', 'input_1,1x3x368x640,1x3x368x640,1x3x368x640',
+        '-e', engine_file_path,
+        '-o', 'output_cov/Sigmoid,output_bbox/BiasAdd',
+        f'{model_dir_path}/{model_name}/1/resnet18_detector.etlt'
+    ]
+    tao_converter_executable = '/opt/nvidia/tao/tao-converter'
+    print('Running command:\n' +
+          ' '.join([tao_converter_executable] + tao_converter_args))
+    start_time = time.time()
+    result = subprocess.run(
+        [tao_converter_executable] + tao_converter_args,
+        env=os.environ,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    if result.returncode != 0:
+        raise Exception(
+            f'Failed to convert with status: {result.returncode}.\n'
+            f'stderr:\n' + result.stderr.decode('utf-8')
         )
-        if result.returncode != 0:
-            raise Exception(
-                f'Failed to convert with status: {result.returncode}.\n'
-                f'stderr:\n' + result.stderr.decode('utf-8')
-            )
-        print(
-            f'Finished generating engine file (took {int(time.time() - start_time)}s)')
+    print(
+        f'Finished generating engine file (took {int(time.time() - start_time)}s)')
 
     encoder_node = ComposableNode(
         name='DnnImageEncoderNode',

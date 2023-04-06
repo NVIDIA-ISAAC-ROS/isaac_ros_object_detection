@@ -58,11 +58,11 @@ constexpr char APP_YAML_FILENAME[] = "config/detectnet_node.yaml";
 constexpr char PACKAGE_NAME[] = "isaac_ros_detectnet";
 
 const std::vector<std::pair<std::string, std::string>> EXTENSIONS = {
-  {"isaac_ros_nitros", "gxf/std/libgxf_std.so"},
-  {"isaac_ros_nitros", "gxf/multimedia/libgxf_multimedia.so"},
-  {"isaac_ros_nitros", "gxf/serialization/libgxf_serialization.so"},
-  {"isaac_ros_nitros", "gxf/cuda/libgxf_cuda.so"},
-  {"isaac_ros_nitros_detection2_d_array_type", "gxf/libgxf_detectnet.so"},
+  {"isaac_ros_gxf", "gxf/lib/std/libgxf_std.so"},
+  {"isaac_ros_gxf", "gxf/lib/multimedia/libgxf_multimedia.so"},
+  {"isaac_ros_gxf", "gxf/lib/serialization/libgxf_serialization.so"},
+  {"isaac_ros_gxf", "gxf/lib/cuda/libgxf_cuda.so"},
+  {"isaac_ros_detectnet", "gxf/lib/detectnet/libgxf_detectnet.so"},
 };
 const std::vector<std::string> PRESET_EXTENSION_SPEC_NAMES = {
   "isaac_ros_detectnet",
