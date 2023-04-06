@@ -15,59 +15,39 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.23.2)
 project(isaac_ros_detectnet LANGUAGES C CXX)
-
-# Default to C++17
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 find_package(ament_cmake_auto REQUIRED)
+ament_auto_find_build_dependencies()
 find_package(ament_cmake_python REQUIRED)
 
-ament_auto_find_build_dependencies()
-
-execute_process(COMMAND uname -m COMMAND tr -d '\n'
-  OUTPUT_VARIABLE ARCHITECTURE
-)
-message( STATUS "Architecture: ${ARCHITECTURE}" )
-
-# Install config directory
-install(
-  DIRECTORY config
-  DESTINATION share/${PROJECT_NAME}
-)
-
-# Decoder node
+# DetectNetDecoderNode
 ament_auto_add_library(detectnet_decoder_node SHARED src/detectnet_decoder_node.cpp)
-target_compile_definitions(detectnet_decoder_node
-  PRIVATE "COMPOSITION_BUILDING_DLL"
-)
-
 rclcpp_components_register_nodes(detectnet_decoder_node "nvidia::isaac_ros::detectnet::DetectNetDecoderNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::detectnet::DetectNetDecoderNode;$<TARGET_FILE:detectnet_decoder_node>\n")
 
-install(TARGETS detectnet_decoder_node
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
-)
+### Install extensions built from source
+
+# DetectNet
+add_subdirectory(gxf/detectnet)
+install(TARGETS gxf_detectnet DESTINATION share/${PROJECT_NAME}/gxf/lib/detectnet)
+
+### End extensions
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 
   find_package(launch_testing_ament_cmake REQUIRED)
-  add_launch_test(test/isaac_ros_detectnet_pol_test.py TIMEOUT "400")
+  add_launch_test(test/isaac_ros_detectnet_pol_test.py TIMEOUT "600")
 endif()
 
 # Visualizer python scripts
-
 ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
@@ -80,6 +60,4 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
 
-ament_auto_package(INSTALL_TO_SHARE launch config)
-
-find_package(vision_msgs REQUIRED)
+ament_auto_package(INSTALL_TO_SHARE config launch)

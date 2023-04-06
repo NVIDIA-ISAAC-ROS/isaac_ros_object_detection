@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_detectnet</name>
-  <version>0.20.0</version>
+  <version>0.30.0</version>
   <description>DetectNet model processing</description>
 
   <maintainer email="ashwinvk@nvidia.com">Ashwin Varghese Kuruttukulam</maintainer>
@@ -38,6 +38,8 @@ SPDX-License-Identifier: Apache-2.0
   <depend>isaac_ros_nitros</depend>
   <depend>isaac_ros_nitros_detection2_d_array_type</depend>
   <depend>isaac_ros_nitros_tensor_list_type</depend>
+
+  <build_depend>isaac_ros_common</build_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
