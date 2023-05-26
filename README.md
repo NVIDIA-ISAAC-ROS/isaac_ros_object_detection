@@ -30,9 +30,10 @@ This package is powered by [NVIDIA Isaac Transport for ROS (NITROS)](https://dev
 
 The performance results of benchmarking the prepared pipelines in this package on supported platforms are below:
 
-| Pipeline                   | AGX Orin           | Orin Nano        | x86_64 w/ RTX 3060 Ti |
-| -------------------------- | ------------------ | ---------------- | --------------------- |
-| Isaac ROS Detectnet (544p) | 225 fps <br> 7.7ms | 72 fps <br> 18ms | 450 fps <br> 3.2ms    |
+| Sample Graph                                                                                                                                        | Input Size | AGX Orin                                                                                                                                       | Orin NX                                                                                                                                      | Orin Nano 8GB                                                                                                                                        | x86_64 w/ RTX 4060 Ti |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| [DetectNet Object Detection Graph](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/scripts//isaac_ros_detectnet_graph.py) | 544p       | [252 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_detectnet_graph-agx_orin.json)<br>8.7 ms | [110 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_detectnet_graph-orin_nx.json)<br>13 ms | [77.9 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_detectnet_graph-orin_nano_emul.json)<br>18 ms | --                    |
+
 
 > **Note**: These numbers are reported with defaults parameter values found in [params.yaml](./isaac_ros_detectnet/config/params.yaml).
 
@@ -81,7 +82,7 @@ To run the DetectNet object detection inference, the following ROS 2 nodes shoul
 
 ## Latest Update
 
-Update 2023-04-05: Source available GXF extensions
+Update 2023-05-25: Performance improvements.
 
 ## Supported Platforms
 
@@ -249,6 +250,7 @@ For solutions to problems with using DNN models, please check [here](https://git
 
 | Date       | Changes                                                                               |
 | ---------- | ------------------------------------------------------------------------------------- |
+| 2023-05-25 | Performance improvements                                                              |
 | 2023-04-05 | Source available GXF extensions                                                       |
 | 2022-10-19 | Updated OSS licensing                                                                 |
 | 2022-08-31 | Update to use NITROS for improved performance and to be compatible with JetPack 5.0.2 |

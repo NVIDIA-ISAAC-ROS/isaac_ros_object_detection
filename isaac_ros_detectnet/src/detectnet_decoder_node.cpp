@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ using nvidia::gxf::optimizer::GraphIOGroupSupportedDataTypesInfoList;
 #define INPUT_DEFAULT_TENSOR_FORMAT_TENSORLIST  "nitros_tensor_list_nchw_rgb_f32"
 #define INPUT_TOPIC_NAME_TENSORLIST             "tensor_sub"
 
-#define OUTPUT_COMPONENT_KEY_DETECTIONS         "vault/vault"
+#define OUTPUT_COMPONENT_KEY_DETECTIONS         "sink/sink"
 #define OUTPUT_DEFAULT_TENSOR_FORMAT_DETECTIONS "nitros_detection2_d_array"
 #define OUTPUT_TOPIC_NAME_TAG_DETECTIONS        "detectnet/detections"
 
