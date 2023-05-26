@@ -261,6 +261,7 @@ gxf_result_t DetectnetDecoder::tick() noexcept
     return GXF_FAILURE;
   }
 
+  // TODO(ashwinvk): Do not copy data to host and perform decoding using cuda
   // copy memory to host
   float cov_tensor_arr[cov_tensor->size() / sizeof(float)]; // since data in tensor is kFloat32
   const cudaError_t cuda_error_cov_tensor = cudaMemcpy(
