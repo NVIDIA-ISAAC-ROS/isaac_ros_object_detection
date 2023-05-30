@@ -232,9 +232,9 @@ ros2 launch isaac_ros_detectnet isaac_ros_detectnet.launch.py label_list:=<list 
 
 #### ROS Topics Published
 
-| ROS Topic              | Interface                                                                                                        | Description                                        |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `detectnet/detections` | [vision_msgs/Detection2DArray](https://github.com/ros-perception/vision_msgs/blob/ros2/msg/Detection2DArray.msg) | Aligned image bounding boxes with detection class. |
+| ROS Topic              | Interface                                                                                                                    | Description                                        |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `detectnet/detections` | [vision_msgs/Detection2DArray](https://github.com/ros-perception/vision_msgs/blob/ros2/vision_msgs/msg/Detection2DArray.msg) | Aligned image bounding boxes with detection class. |
 
 ## Troubleshooting
 
