@@ -6,6 +6,8 @@
 
 This tutorial walks you through a pipeline for object(people) detection using [DetectNet](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_object_detection) consuming images from Isaac Sim.
 
+Last validated with [Isaac Sim 2022.2.1](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/release_notes.html#id1)
+
 ## Tutorial Walkthrough
 
 1. Complete the [Quickstart section](../README.md#quickstart) in the main README.
@@ -39,16 +41,13 @@ This tutorial walks you through a pipeline for object(people) detection using [D
     ```
 
 6. Install and launch Isaac Sim following the steps in the [Isaac ROS Isaac Sim Setup Guide](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/main/docs/isaac-sim-sil-setup.md)
-7. Open up the Isaac ROS Common USD scene (using the "content" window) located at:
-
-   `omniverse://localhost/NVIDIA/Assets/Isaac/2022.1/Isaac/Samples/ROS2/Scenario/carter_warehouse_apriltags_worker.usd`
-
-   Wait for it to load completely.
-   > **Note:** To use a different server, replace `localhost` with `<your_nucleus_server>`
-
-8. Change the Translate values for the Transform box inside the Property section of the Carter_ROS object  to
-   `X=0.0 , Y=0.0`
-   <div align="center"><img src="../resources/change_translate.png" width="400px"/></div>
+7. Open up the Isaac ROS Common USD scene (using the *Content* tab) located at:
+    ```text
+    http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/2022.2.1/Isaac/Samples/ROS2/Scenario/carter_warehouse_apriltags_worker.usd
+    ```
+    And wait for it to load completely.
+8. Go to the *Stage* tab and select `/World/Carter_ROS`, then in *Property* tab *-> Transform -> Translate* set *X* and *Y* both to `0.0`.
+   <div align="center"><img src="../resources/Isaac_sim_change_translate.png" width="400px"/></div>
 9. Press **Play** to start publishing data from Isaac Sim.
-   <div align="center"><img src="../resources/isaac_sim_play.png" width="600px"/></div>
+   <div align="center"><img src="../resources/Isaac_sim_play.png" width="600px"/></div>
 10. You should see the image from Isaac Sim with the rectangles overlayed over detected people in the frame.

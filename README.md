@@ -1,10 +1,26 @@
 # Isaac ROS Object Detection
 
-<div align="center"><img alt="Isaac ROS DetectNet Sample Output" src="resources/header-image.png" width="600px"/></div>
+<div align="center"><img alt="original image" src="resources/isaac_ros_object_detection_example.png" width="300px"/> <img alt="bounding box predictions using DetectNet" src="resources/isaac_ros_object_detection_example_bbox.png" width="300px"/></div>
 
 ## Overview
 
-This repository provides a GPU-accelerated package for object detection based on [DetectNet](https://developer.nvidia.com/blog/detectnet-deep-neural-network-object-detection-digits/). Using a trained deep-learning model and a monocular camera, the `isaac_ros_detectnet` package can detect objects of interest in an image and provide bounding boxes. DetectNet is similar to other popular object detection models such as YOLOV3, FasterRCNN, SSD, and others while being efficient with multiple object classes in large images.
+Isaac ROS Object Detection contains an ROS 2 package to perform object detection. `isaac_ros_detectnet` provides a method for spatial classification using bounding boxes with an input image. Classification is performed by a GPU-accelerated [DetectNet](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/pretrained_detectnet_v2) model. The output prediction can be used by perception functions to understand the presence and spatial location of an object in an image.
+
+<div align="center"><img alt="graph of nodes using DetectNet" src="resources/isaac_ros_object_detection_nodegraph.png" width="500px"/></div>
+
+`isaac_ros_detectnet` is used in a graph of nodes to provide a bounding box detection array with object classes from an input image. A [DetectNet](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/pretrained_detectnet_v2) model is required to produce the detection array. Input images may need to be cropped and resized to maintain the aspect ratio and match the input resolution of DetectNet; image resolution may be reduced to improve DNN inference performance, which typically scales directly with the number of pixels in the image. `isaac_ros_dnn_image_encoder` provides a DNN encoder to process the input image into Tensors for the DetectNet model. Prediction results are clustered in the DNN decoder to group multiple detections on the same object. Output is provided as a detection array with object classes.
+
+DNNs have a minimum number of pixels that need to be visible on the object to provide a classification prediction. If a person cannot see the object in the image, it’s unlikely the DNN will. Reducing input resolution to reduce compute may reduce what is detected in the image. For example, a 1920x1080 image containing a distant person occupying 1k pixels (64x16) would have 0.25K pixels (32x8) when downscaled by 1/2 in both X and Y. The DNN may detect the person with the original input image, which provides 1K pixels for the person, and fail to detect the same person in the downscaled resolution, which only provides 0.25K pixels for the person.
+
+> **Note**: DetectNet is similar to other popular object detection models such as YOLOV3, FasterRCNN, and SSD, while being efficient at detecting multiple object classes in large images.
+
+<div align="center"><img alt="comparison of bounding box detection to segmentation" src="resources/isaac_ros_object_detection_example_bboxseg.png" width="300px"/></div>
+
+Object detection classifies a rectangle of pixels as containing an object, whereas image segmentation provides more information and uses more compute to produce a classification per pixel. Object detection is used to know if, and where in a 2D image, the object exists. If a 3D spacial understanding or size of an object in pixels is required, use image segmentation.  
+
+### DNN Models
+
+To perform DNN inferencing a DNN model is required. NGC provides [DetectNet pre-trained models](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/pretrained_detectnet_v2) for use in your robotics application. Using [TAO](https://developer.nvidia.com/tao-toolkit) these pre-trained models can be fine-tuned for your application.
 
 ### Isaac ROS NITROS Acceleration
 
@@ -14,24 +30,25 @@ This package is powered by [NVIDIA Isaac Transport for ROS (NITROS)](https://dev
 
 The performance results of benchmarking the prepared pipelines in this package on supported platforms are below:
 
-| Pipeline                   | AGX Orin           | Orin Nano        | x86_64 w/ RTX 3060 Ti |
-| -------------------------- | ------------------ | ---------------- | --------------------- |
-| Isaac ROS Detectnet (544p) | 225 fps <br> 7.7ms | 72 fps <br> 18ms | 450 fps <br> 3.2ms    |
+| Sample Graph                                                                                                                                        | Input Size | AGX Orin                                                                                                                                       | Orin NX                                                                                                                                      | Orin Nano 8GB                                                                                                                                        | x86_64 w/ RTX 4060 Ti |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| [DetectNet Object Detection Graph](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/scripts//isaac_ros_detectnet_graph.py) | 544p       | [252 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_detectnet_graph-agx_orin.json)<br>8.7 ms | [110 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_detectnet_graph-orin_nx.json)<br>13 ms | [77.9 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_detectnet_graph-orin_nano_emul.json)<br>18 ms | --                    |
 
-> **Note:** These numbers are reported with defaults parameter values found in [params.yaml](./isaac_ros_detectnet/config/params.yaml).
+
+> **Note**: These numbers are reported with defaults parameter values found in [params.yaml](./isaac_ros_detectnet/config/params.yaml).
 
 These data have been collected per the methodology described [here](https://github.com/NVIDIA-ISAAC-ROS/.github/blob/main/profile/performance-summary.md#methodology).
 
-### ROS2 Graph Configuration
+### ROS 2 Graph Configuration
 
-To run the DetectNet object detection inference, the following ROS2 nodes should be set up and running:
+To run the DetectNet object detection inference, the following ROS 2 nodes should be set up and running:
 
 ![DetectNet output image showing 2 tennis balls correctly identified](resources/ros2_detectnet_node_setup.svg "Tennis balls detected in image using DetectNet")
 
 1. **Isaac ROS DNN Image encoder**: This will take an image message and convert it to a tensor ([`TensorList`](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/main/isaac_ros_tensor_list_interfaces/msg/TensorList.msg) that can be
    processed by the network.
 2. **Isaac ROS DNN Inference - Triton**: This will execute the DetectNet network and take as input the tensor from the DNN Image Encoder.
-    > **Note:** The [Isaac ROS TensorRT](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_dnn_inference/tree/main/isaac_ros_tensor_rt) package is not able to perform inference with DetectNet models at this time.
+    > **Note**: The [Isaac ROS TensorRT](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_dnn_inference/tree/main/isaac_ros_tensor_rt) package is not able to perform inference with DetectNet models at this time.
   
    The output will be a TensorList message containing the encoded detections. Use the parameters `model_name` and `model_repository_paths` to point to the model folder and set the model name. The `.plan` file should be located at `$model_repository_path/$model_name/1/model.plan`
 3. **Isaac ROS Detectnet Decoder**: This node will take the TensorList with encoded detections as input, and output `Detection2DArray` messages for each frame. See the following section for the parameters.
@@ -40,9 +57,10 @@ To run the DetectNet object detection inference, the following ROS2 nodes should
 
 - [Isaac ROS Object Detection](#isaac-ros-object-detection)
   - [Overview](#overview)
+    - [DNN Models](#dnn-models)
     - [Isaac ROS NITROS Acceleration](#isaac-ros-nitros-acceleration)
     - [Performance](#performance)
-    - [ROS2 Graph Configuration](#ros2-graph-configuration)
+    - [ROS 2 Graph Configuration](#ros-2-graph-configuration)
   - [Table of Contents](#table-of-contents)
   - [Latest Update](#latest-update)
   - [Supported Platforms](#supported-platforms)
@@ -64,24 +82,24 @@ To run the DetectNet object detection inference, the following ROS2 nodes should
 
 ## Latest Update
 
-Update 2022-10-19: Updated OSS licensing
+Update 2023-05-25: Performance improvements.
 
 ## Supported Platforms
 
-This package is designed and tested to be compatible with ROS2 Humble running on [Jetson](https://developer.nvidia.com/embedded-computing) or an x86_64 system with an NVIDIA GPU.
+This package is designed and tested to be compatible with ROS 2 Humble running on [Jetson](https://developer.nvidia.com/embedded-computing) or an x86_64 system with an NVIDIA GPU.
 
-> **Note**: Versions of ROS2 earlier than Humble are **not** supported. This package depends on specific ROS2 implementation features that were only introduced beginning with the Humble release.
+> **Note**: Versions of ROS 2 earlier than Humble are **not** supported. This package depends on specific ROS 2 implementation features that were only introduced beginning with the Humble release.
 
-| Platform | Hardware                                                                                                                                                                                                 | Software                                                                                                             | Notes                                                                                                                                                                                   |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jetson   | [Jetson Orin](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/) <br> [Jetson Xavier](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-agx-xavier/) | [JetPack 5.0.2](https://developer.nvidia.com/embedded/jetpack)                                                       | For best performance, ensure that [power settings](https://docs.nvidia.com/jetson/archives/r34.1/DeveloperGuide/text/SD/PlatformPowerAndPerformance.html) are configured appropriately. |
-| x86_64   | NVIDIA GPU                                                                                                                                                                                               | [Ubuntu 20.04+](https://releases.ubuntu.com/20.04/) <br> [CUDA 11.6.1+](https://developer.nvidia.com/cuda-downloads) |
+| Platform | Hardware                                                                                                                                                                                                 | Software                                                                                                          | Notes                                                                                                                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jetson   | [Jetson Orin](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/) <br> [Jetson Xavier](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-agx-xavier/) | [JetPack 5.1.1](https://developer.nvidia.com/embedded/jetpack)                                                    | For best performance, ensure that [power settings](https://docs.nvidia.com/jetson/archives/r34.1/DeveloperGuide/text/SD/PlatformPowerAndPerformance.html) are configured appropriately. |
+| x86_64   | NVIDIA GPU                                                                                                                                                                                               | [Ubuntu 20.04+](https://releases.ubuntu.com/20.04/) <br> [CUDA 11.8](https://developer.nvidia.com/cuda-downloads) |
 
 ### Docker
 
 To simplify development, we strongly recommend leveraging the Isaac ROS Dev Docker images by following [these steps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/main/docs/dev-env-setup.md). This will streamline your development environment setup with the correct versions of dependencies on both Jetson and x86_64 platforms.
 
-> **Note:** All Isaac ROS Quickstarts, tutorials, and examples have been designed with the Isaac ROS Docker images as a prerequisite.
+> **Note**: All Isaac ROS Quickstarts, tutorials, and examples have been designed with the Isaac ROS Docker images as a prerequisite.
 
 ## Quickstart
 
@@ -98,6 +116,10 @@ To simplify development, we strongly recommend leveraging the Isaac ROS Dev Dock
 
     ```bash
     git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_dnn_inference
+    ```
+
+    ```bash
+    git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline
     ```
 
     ```bash
@@ -210,9 +232,9 @@ ros2 launch isaac_ros_detectnet isaac_ros_detectnet.launch.py label_list:=<list 
 
 #### ROS Topics Published
 
-| ROS Topic              | Interface                                                                                                        | Description                                        |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| `detectnet/detections` | [vision_msgs/Detection2DArray](https://github.com/ros-perception/vision_msgs/blob/ros2/msg/Detection2DArray.msg) | Aligned image bounding boxes with detection class. |
+| ROS Topic              | Interface                                                                                                                    | Description                                        |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `detectnet/detections` | [vision_msgs/Detection2DArray](https://github.com/ros-perception/vision_msgs/blob/ros2/vision_msgs/msg/Detection2DArray.msg) | Aligned image bounding boxes with detection class. |
 
 ## Troubleshooting
 
@@ -228,7 +250,9 @@ For solutions to problems with using DNN models, please check [here](https://git
 
 | Date       | Changes                                                                               |
 | ---------- | ------------------------------------------------------------------------------------- |
+| 2023-05-25 | Performance improvements                                                              |
+| 2023-04-05 | Source available GXF extensions                                                       |
 | 2022-10-19 | Updated OSS licensing                                                                 |
 | 2022-08-31 | Update to use NITROS for improved performance and to be compatible with JetPack 5.0.2 |
-| 2022-06-30 | Support for ROS2 Humble and miscellaneous bug fixes                                   |
+| 2022-06-30 | Support for ROS 2 Humble and miscellaneous bug fixes                                  |
 | 2022-03-21 | Initial release                                                                       |
