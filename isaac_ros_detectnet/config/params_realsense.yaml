@@ -17,7 +17,7 @@
 # SPDX-License-Identifier: Apache-2.0
 ---
 model_repository_paths:
-  - '/tmp/models'
+  - '/workspaces/isaac_ros-dev/src/isaac_ros_object_detection/isaac_ros_detectnet/models'
 model_name: 'detectnet'
 bounding_box_scale: 35.0
 bounding_box_offset: 0.0
@@ -26,47 +26,12 @@ bounding_box_offset: 0.0
 enable_confidence_threshold: true
 enable_bbox_area_threshold: true
 enable_dbscan_clustering: true
-confidence_threshold: 0.55
-min_bbox_area: 1000.0
-dbscan_confidence_threshold: 0.55
+confidence_threshold: 0.35
+min_bbox_area: 10000.0
+dbscan_confidence_threshold: 0.35
 dbscan_eps: 0.7
 dbscan_min_boxes: 1
 dbscan_enable_athr_filter: 0
 dbscan_threshold_athr: 0.0
 dbscan_clustering_algorithm: 1
-linewidth: 4
-stride: 16
-classwise_clustering_config:
-  person:
-    coverage_threshold: 0.005
-    minimum_bounding_box_height: 4
-    dbscan_config:
-      dbscan_eps: 0.3
-      dbscan_min_samples: 0.05
-      dbscan_confidence_threshold: 0.9
-    bbox_color:
-      R: 0
-      G: 255
-      B: 0
-  bag:
-    coverage_threshold: 0.005
-    minimum_bounding_box_height: 4
-    dbscan_config:
-      dbscan_eps: 0.3
-      dbscan_min_samples: 0.05
-      dbscan_confidence_threshold: 0.9
-    bbox_color:
-      R: 0
-      G: 255
-      B: 255
-  face:
-    coverage_threshold: 0.005
-    minimum_bounding_box_height: 4
-    dbscan_config:
-      dbscan_eps: 0.3
-      dbscan_min_samples: 0.05
-      dbscan_confidence_threshold: 0.2
-    bbox_color:
-      R: 255
-      G: 0
-      B: 0
+

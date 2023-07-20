@@ -4,3 +4,4 @@
 # Ignore TensorRT plan files
 *.plan
 *.engine
+isaac_ros_detectnet/models/*

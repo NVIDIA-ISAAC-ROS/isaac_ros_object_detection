@@ -19,13 +19,14 @@
 # inside the Docker container
 
 # default arguments
-MODEL_LINK="https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/deployable_quantized_v2.5/zip"
-MODEL_FILE_NAME="resnet34_peoplenet_int8.etlt"
-HEIGHT="632"
-WIDTH="1200"
-CONFIG_FILE_PATH="isaac_ros_detectnet/resources/peoplenet_config.pbtxt"
+MODEL_LINK="https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/pruned_quantized_v2.3.2/zip"
+MODEL_FILE_NAME="resnet34_peoplenet_pruned_int8.etlt"
+HEIGHT="720"
+WIDTH="1280"
+CONFIG_FILE_PATH="isaac_ros_detectnet/resources/realsense_config.pbtxt"
 PRECISION="int8"
 OUTPUT_LAYERS="output_cov/Sigmoid,output_bbox/BiasAdd"
+MODEL_DIR="models/detectnet"
 
 function print_parameters() {
   echo
@@ -58,10 +59,10 @@ function check_labels_files() {
 
 function setup_model() {
   # Download pre-trained ETLT model to appropriate directory
-  echo Creating Directory : /tmp/models/detectnet/1
-  rm -rf /tmp/models
-  mkdir -p /tmp/models/detectnet/1
-  cd /tmp/models/detectnet/1
+  rm -rf $MODEL_DIR
+  echo Creating Directory : $MODEL_DIR/1
+  mkdir -p $MODEL_DIR/1
+  cd $MODEL_DIR/1
   echo Downloading .etlt file from $MODEL_LINK
   echo From $MODEL_LINK
   wget --content-disposition $MODEL_LINK -O model.zip
@@ -83,10 +84,10 @@ function setup_model() {
     -e model.plan \
     -o $OUTPUT_LAYERS\
     $MODEL_FILE_NAME
-  echo Copying .pbtxt config file to /tmp/models/detectnet
+  echo Copying .pbtxt config file to $MODEL_DIR
   cd /workspaces/isaac_ros-dev/src/isaac_ros_object_detection/isaac_ros_detectnet
   cp $CONFIG_FILE_PATH \
-    /tmp/models/detectnet/config.pbtxt
+    $MODEL_DIR/config.pbtxt
   echo Completed quickstart setup
 }
 

@@ -26,12 +26,33 @@ def generate_launch_description():
     """Generate launch description for testing relevant nodes."""
     launch_dir_path = os.path.dirname(os.path.realpath(__file__))
     config = launch_dir_path + '/../config/params_realsense.yaml'
-    model_dir_path = '/tmp/models'
+    model_dir_path = '/workspaces/isaac_ros-dev/src/isaac_ros_object_detection/isaac_ros_detectnet/models'
 
     # Read labels from text file
     labels_file_path = f'{model_dir_path}/detectnet/1/labels.txt'
     with open(labels_file_path, 'r') as fd:
         label_list = fd.read().strip().splitlines()
+
+    realsense_camera_node = Node(
+        name='camera',
+        namespace='camera',
+        package='realsense2_camera',
+        executable='realsense2_camera_node',
+        parameters=[{
+                'enable_infra1': True,
+                'enable_infra2': True,
+                'enable_color': True,
+                'enable_depth': True,
+                'depth_module.emitter_enabled': 0,
+                'depth_module.profile': '640x360x90',
+                'rgb_camera.profile': '1280x720x30',
+                'enable_gyro': True,
+                'enable_accel': True,
+                'gyro_fps': 200,
+                'accel_fps': 200,
+                'unite_imu_method': 2
+        }]
+    )
 
     encoder_node = ComposableNode(
         name='dnn_image_encoder',
@@ -59,7 +80,26 @@ def generate_launch_description():
             'output_binding_names': ['output_cov/Sigmoid', 'output_bbox/BiasAdd'],
             'output_tensor_formats': ['nitros_tensor_list_nhwc_rgb_f32'],
             'log_level': 0
-        }])
+        }]
+    )
+    
+    tensor_rt_node = ComposableNode(
+        name='tensor_rt',
+        package='isaac_ros_tensor_rt',
+        plugin='nvidia::isaac_ros::dnn_inference::TensorRTNode',
+        remappings=[('tensor_pub', 'tensor_pub'),
+                    ('tensor_sub', 'tensor_sub')],
+        parameters=[{
+            'model_file_path': model_dir_path,
+            'engine_file_path': "/usr/src/tensorrt/bin/trtexec",
+            'output_binding_names': ['output_cov/Sigmoid', 'output_bbox/BiasAdd'],
+            'output_tensor_names': ['output_cov', 'output_bbox'],
+            'input_tensor_names': ['input_tensor'],
+            'input_binding_names': ['input_1'],
+            'verbose': False,
+            'force_engine_update': False
+        }]
+    )
 
     detectnet_decoder_node = ComposableNode(
         name='detectnet_decoder_node',
@@ -99,5 +139,5 @@ def generate_launch_description():
         ]
     )
 
-    return LaunchDescription([detectnet_container, detectnet_visualizer_node, rqt_image_view_node
+    return LaunchDescription([realsense_camera_node, detectnet_container, detectnet_visualizer_node, rqt_image_view_node
                               ])
