@@ -17,7 +17,7 @@
 # SPDX-License-Identifier: Apache-2.0
 ---
 model_repository_paths:
-  - '/workspaces/isaac_ros-dev/src/isaac_ros_object_detection/isaac_ros_detectnet/models'
+  - '/workspaces/isaac_ros-dev/src/nvidia_object_detection/isaac_ros_object_detection/isaac_ros_detectnet/models'
 model_name: 'detectnet'
 bounding_box_scale: 35.0
 bounding_box_offset: 0.0

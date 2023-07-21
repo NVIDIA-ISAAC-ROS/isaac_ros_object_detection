@@ -23,7 +23,7 @@ MODEL_LINK="https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/p
 MODEL_FILE_NAME="resnet34_peoplenet_pruned_int8.etlt"
 HEIGHT="720"
 WIDTH="1280"
-CONFIG_FILE_PATH="isaac_ros_detectnet/resources/realsense_config.pbtxt"
+CONFIG_FILE_PATH="resources/realsense_config.pbtxt"
 PRECISION="int8"
 OUTPUT_LAYERS="output_cov/Sigmoid,output_bbox/BiasAdd"
 MODEL_DIR="models/detectnet"
@@ -85,7 +85,7 @@ function setup_model() {
     -o $OUTPUT_LAYERS\
     $MODEL_FILE_NAME
   echo Copying .pbtxt config file to $MODEL_DIR
-  cd /workspaces/isaac_ros-dev/src/isaac_ros_object_detection/isaac_ros_detectnet
+  cd /workspaces/isaac_ros-dev/src/nvidia_object_detection/isaac_ros_object_detection/isaac_ros_detectnet
   cp $CONFIG_FILE_PATH \
     $MODEL_DIR/config.pbtxt
   echo Completed quickstart setup

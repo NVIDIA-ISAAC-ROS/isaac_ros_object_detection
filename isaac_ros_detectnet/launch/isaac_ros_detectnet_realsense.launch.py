@@ -26,7 +26,7 @@ def generate_launch_description():
     """Generate launch description for testing relevant nodes."""
     launch_dir_path = os.path.dirname(os.path.realpath(__file__))
     config = launch_dir_path + '/../config/params_realsense.yaml'
-    model_dir_path = '/workspaces/isaac_ros-dev/src/isaac_ros_object_detection/isaac_ros_detectnet/models'
+    model_dir_path = '/workspaces/isaac_ros-dev/src/nvidia_object_detection/isaac_ros_object_detection/isaac_ros_detectnet/models'
 
     # Read labels from text file
     labels_file_path = f'{model_dir_path}/detectnet/1/labels.txt'
