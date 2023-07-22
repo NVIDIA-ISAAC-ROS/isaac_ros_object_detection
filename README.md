@@ -104,29 +104,17 @@ To simplify development, we strongly recommend leveraging the Isaac ROS Dev Dock
 ## Quickstart
 
 1. Set up your development environment by following the instructions [here](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common/blob/main/docs/dev-env-setup.md).
-2. Clone this repository and its dependencies under `~/workspaces/isaac_ros-dev/src`.
+
+    > Note: `${ISAAC_ROS_WS}` is defined to point to either `/ssd/workspaces/isaac_ros-dev/` or `~/workspaces/isaac_ros-dev/`.
+
+2. Clone this repository and its dependencies under `${ISAAC_ROS_WS}/src`.
 
     ```bash
-    cd ~/workspaces/isaac_ros-dev/src
-    ```
-
-    ```bash
+    cd ${ISAAC_ROS_WS}/src
     git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_object_detection
-    ```
-
-    ```bash
     git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_dnn_inference
-    ```
-
-    ```bash
     git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline
-    ```
-
-    ```bash
     git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_nitros
-    ```
-
-    ```bash
     git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common
     ```
 
@@ -137,11 +125,11 @@ To simplify development, we strongly recommend leveraging the Isaac ROS Dev Dock
       git lfs pull -X "" -I "resources/rosbags"
     ```
 
-4. Launch the Docker container using the `run_dev.sh` script:
+4. \[Terminal 1\] Launch the Docker container
 
     ```bash
-    cd ~/workspaces/isaac_ros-dev/src/isaac_ros_common && \
-      ./scripts/run_dev.sh
+    cd ${ISAAC_ROS_WS}/src/isaac_ros_common && \
+      ./scripts/run_dev.sh ${ISAAC_ROS_WS}
     ```
 
 5. Inside the container, build and source the workspace:
