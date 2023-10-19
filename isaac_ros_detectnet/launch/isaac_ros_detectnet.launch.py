@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,11 +35,16 @@ def generate_launch_description():
 
     encoder_node = ComposableNode(
         name='dnn_image_encoder',
-        package='isaac_ros_dnn_encoders',
+        package='isaac_ros_dnn_image_encoder',
         plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
         parameters=[{
+            'input_image_width': 1200,
+            'input_image_height': 632,
             'network_image_width': 1200,
-            'network_image_height': 632
+            'network_image_height': 632,
+            'image_mean': [0.0, 0.0, 0.0],
+            'image_stddev': [1.0, 1.0, 1.0],
+            'enable_padding': False
         }],
         remappings=[('encoded_tensor', 'tensor_pub')]
     )

@@ -263,18 +263,18 @@ gxf_result_t DetectnetDecoder::tick() noexcept
 
   // TODO(ashwinvk): Do not copy data to host and perform decoding using cuda
   // copy memory to host
-  float cov_tensor_arr[cov_tensor->size() / sizeof(float)]; // since data in tensor is kFloat32
+  std::unique_ptr<float[]> cov_tensor_arr(new float[cov_tensor->element_count()]);
   const cudaError_t cuda_error_cov_tensor = cudaMemcpy(
-    &cov_tensor_arr, cov_tensor->pointer(),
+    cov_tensor_arr.get(), cov_tensor->pointer(),
     cov_tensor->size(), cudaMemcpyDeviceToHost);
   if (cuda_error_cov_tensor != cudaSuccess) {
     GXF_LOG_ERROR("Error while copying kernel: %s", cudaGetErrorString(cuda_error_cov_tensor));
     return GXF_FAILURE;
   }
 
-  float bbox_tensor_arr[bbox_tensor->size() / sizeof(float)]; // since data in tensor is kFloat32
+  std::unique_ptr<float[]> bbox_tensor_arr(new float[bbox_tensor->element_count()]);
   const cudaError_t cuda_error_bbox_tensor = cudaMemcpy(
-    &bbox_tensor_arr, bbox_tensor->pointer(),
+    bbox_tensor_arr.get(), bbox_tensor->pointer(),
     bbox_tensor->size(), cudaMemcpyDeviceToHost);
   if (cuda_error_bbox_tensor != cudaSuccess) {
     GXF_LOG_ERROR("Error while copying kernel: %s", cudaGetErrorString(cuda_error_bbox_tensor));
@@ -342,7 +342,7 @@ gxf_result_t DetectnetDecoder::tick() noexcept
         // check if object_class is out of range for label_list_
         if (static_cast<size_t>(object_class) >= label_list_.get().size()) {
           GXF_LOG_ERROR(
-            "[DetectNet Decoder] object_class %i is out of range for provided label_list_ of size %i", object_class,
+            "[DetectNet Decoder] object_class %i is out of range for provided label_list_ of size %lu", object_class,
             label_list_.get().size());
           return GXF_FAILURE;
         }
@@ -369,7 +369,7 @@ gxf_result_t DetectnetDecoder::tick() noexcept
     } else {
       GXF_LOG_ERROR(
         "Invalid value for dbscan_clustering_algorithm: %i",
-        dbscan_clustering_algorithm_);
+        dbscan_clustering_algorithm_.get());
       return GXF_FAILURE;
     }
     NvDsInferDBScanDestroy(dbscan_hdl);
