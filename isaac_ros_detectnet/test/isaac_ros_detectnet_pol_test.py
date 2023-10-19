@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,11 +91,13 @@ def generate_test_description():
 
     encoder_node = ComposableNode(
         name='DnnImageEncoderNode',
-        package='isaac_ros_dnn_encoders',
+        package='isaac_ros_dnn_image_encoder',
         plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
         namespace=IsaacROSDetectNetPipelineTest.generate_namespace(
             _TEST_CASE_NAMESPACE),
         parameters=[{
+            'input_image_width': 640,
+            'input_image_height': 368,
             'network_image_width': 640,
             'network_image_height': 368
         }],
@@ -189,6 +191,7 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
         try:
             image = JSONConversion.load_image_from_json(
                 test_folder / 'detections.json')
+            image.header.stamp = self.node.get_clock().now().to_msg()
             ground_truth = open(test_folder.joinpath(
                 'expected_detections.txt'), 'r')
             expected_detections = []
@@ -210,8 +213,6 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
                 rclpy.spin_once(self.node, timeout_sec=0.1)
 
                 if 'detectnet/detections' in received_messages:
-                    pprint(
-                        received_messages['detectnet/detections'].detections[0])
                     done = True
                     break
 
@@ -220,7 +221,11 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
 
             detection_list = received_messages['detectnet/detections'].detections
 
+            pprint(detection_list)
+
             pixel_tolerance = 2.0
+
+            self.assertGreater(len(detection_list), 0, 'No detections in detection list!')
 
             self.assertAlmostEqual(detection_list[0].bbox.size_x,
                                    expected_detections[0]['width'],
