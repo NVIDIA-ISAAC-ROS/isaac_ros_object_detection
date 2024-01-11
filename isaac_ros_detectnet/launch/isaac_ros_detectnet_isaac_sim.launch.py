@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,16 +33,37 @@ def generate_launch_description():
     with open(labels_file_path, 'r') as fd:
         label_list = fd.read().strip().splitlines()
 
+    image_resize_node_left = ComposableNode(
+        package='isaac_ros_image_proc',
+        plugin='nvidia::isaac_ros::image_proc::ResizeNode',
+        name='image_resize_node_left',
+        parameters=[{
+                'output_width': 1280,
+                'output_height': 720,
+                'encoding_desired': 'rgb8',
+        }],
+        remappings=[
+            ('camera_info', 'front_stereo_camera/left_rgb/camerainfo'),
+            ('image', 'front_stereo_camera/left_rgb/image_raw'),
+            ('resize/camera_info', 'front_stereo_camera/left_rgb/camerainfo_resize'),
+            ('resize/image', 'front_stereo_camera/left_rgb/image_resize')]
+    )
+
     encoder_node = ComposableNode(
         name='dnn_image_encoder',
-        package='isaac_ros_dnn_encoders',
+        package='isaac_ros_dnn_image_encoder',
         plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
         parameters=[{
+            'input_image_width': 1280,
+            'input_image_height': 720,
             'network_image_width': 1280,
-            'network_image_height': 720
+            'network_image_height': 720,
+            'image_mean': [0.0, 0.0, 0.0],
+            'image_stddev': [1.0, 1.0, 1.0],
+            'enable_padding': False
         }],
         remappings=[('encoded_tensor', 'tensor_pub'),
-                    ('image', 'rgb_left')]
+                    ('image', 'front_stereo_camera/left_rgb/image_resize')]
     )
 
     triton_node = ComposableNode(
@@ -77,7 +98,7 @@ def generate_launch_description():
         package='rclcpp_components',
         executable='component_container_mt',
         composable_node_descriptions=[
-            encoder_node, triton_node, detectnet_decoder_node],
+            image_resize_node_left, encoder_node, triton_node, detectnet_decoder_node],
         output='screen'
     )
 
@@ -85,7 +106,7 @@ def generate_launch_description():
         package='isaac_ros_detectnet',
         executable='isaac_ros_detectnet_visualizer.py',
         name='detectnet_visualizer',
-        remappings=[('image', 'rgb_left')]
+        remappings=[('image', 'front_stereo_camera/left_rgb/image_resize')]
 
     )
 

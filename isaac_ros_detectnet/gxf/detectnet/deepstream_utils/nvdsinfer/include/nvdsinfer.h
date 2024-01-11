@@ -287,11 +287,14 @@ typedef enum
 /**
  * Holds full dimensions (including batch size) for a layer.
  */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 typedef struct
 {
     int batchSize = 0;
     NvDsInferDims dims = {0};
 } NvDsInferBatchDims;
+#pragma GCC diagnostic pop
 
 /**
  * Extended structure for bound layer information which additionally includes

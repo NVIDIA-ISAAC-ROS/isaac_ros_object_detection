@@ -24,7 +24,7 @@ find_package(GXF ${ISAAC_ROS_GXF_VERSION} MODULE REQUIRED
     std
 )
 find_package(isaac_ros_nitros_detection2_d_array_type REQUIRED)
-include(YamlCpp)
+find_package(yaml-cpp)
 
 # DetectNet extension
 add_library(gxf_detectnet SHARED
