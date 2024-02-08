@@ -54,13 +54,21 @@ YoloV8DecoderNode::YoloV8DecoderNode(const rclcpp::NodeOptions options)
       "detections_output", 50)},
   tensor_name_{declare_parameter<std::string>("tensor_name", "output_tensor")},
   confidence_threshold_{declare_parameter<double>("confidence_threshold", 0.25)},
-  nms_threshold_{declare_parameter<double>("nms_threshold", 0.45)}
+  nms_threshold_{declare_parameter<double>("nms_threshold", 0.45)},
+  target_width_{declare_parameter<int>("target_width", 640)},
+  target_height_{declare_parameter<int>("target_height", 480)},
+  num_classes_{declare_parameter<int>("num_classes", 3)}
 {}
 
 YoloV8DecoderNode::~YoloV8DecoderNode() = default;
 
-void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView & msg)
+void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView& msg)
 {
+
+  long int img_width = target_width_; // Specify target image width
+  long int img_height = target_height_; // Specify target image height
+  long int num_classes = num_classes_; // Specify number of classes
+
   auto tensor = msg.GetNamedTensor(tensor_name_);
   size_t buffer_size{tensor.GetTensorSize()};
   std::vector<float> results_vector{};
@@ -72,10 +80,8 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
   std::vector<int> indices;
   std::vector<int> classes;
 
-  //  Output dimensions = [1, 84, 8400]
-  int num_classes = 80;
   int out_dim = 8400;
-  float * results_data = reinterpret_cast<float *>(results_vector.data());
+  float* results_data = reinterpret_cast<float*>(results_vector.data());
 
   for (int i = 0; i < out_dim; i++) {
     float x = *(results_data + i);
@@ -83,8 +89,9 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
     float w = *(results_data + (out_dim * 2) + i);
     float h = *(results_data + (out_dim * 3) + i);
 
-    float x1 = (x - (0.5 * w));
-    float y1 = (y - (0.5 * h));
+    // Convert coordinates from model output to target image dimensions
+    float x1 = ((x - (0.5 * w)));
+    float y1 = ((y - (0.5* h)));
     float width = w;
     float height = h;
 
@@ -122,8 +129,8 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
     vision_msgs::msg::BoundingBox2D bbox;
     float w = bboxes[ind].width;
     float h = bboxes[ind].height;
-    float x_center = bboxes[ind].x + (0.5 * w);
-    float y_center = bboxes[ind].y + (0.5 * h);
+    float x_center = bboxes[ind].x + (0.5 * w)+(img_width-640.0)/2;
+    float y_center = bboxes[ind].y + (0.5 * h)+(img_height-640.0)/2;
     detection.bbox.center.position.x = x_center;
     detection.bbox.center.position.y = y_center;
     detection.bbox.size_x = w;

@@ -86,7 +86,7 @@ def generate_launch_description():
         name='dnn_image_encoder',
         package='isaac_ros_dnn_image_encoder',
         plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
-        remappings=[('encoded_tensor', 'tensor_pub')],
+        remappings=[('encoded_tensor', 'tensor_pub'),],
         parameters=[{
             'input_image_width': input_image_width,
             'input_image_height': input_image_height,

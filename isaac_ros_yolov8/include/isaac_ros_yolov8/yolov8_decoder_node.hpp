@@ -59,6 +59,9 @@ private:
   // YOLOv8 Decoder Parameters
   double confidence_threshold_{};
   double nms_threshold_{};
+  long int target_width_{};
+  long int target_height_{};
+  long int num_classes_{};
 };
 
 }  // namespace yolov8
