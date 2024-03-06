@@ -16,11 +16,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import launch
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
-
 
 def generate_launch_description():
     """Generate launch description for TensorRT ROS 2 node."""
@@ -58,8 +57,20 @@ def generate_launch_description():
             'force_engine_update',
             default_value='False',
             description='Whether TensorRT should update the TensorRT engine file or not'),
+        DeclareLaunchArgument(
+            'namespace',
+            default_value='',
+            description='Namespace for the nodes'
+        ),
+        ExecuteProcess(
+            cmd=['echo', 'Namespace is:', LaunchConfiguration('namespace')],
+            output='screen',
+        ),
     ]
 
+    # Namespace
+    namespace = LaunchConfiguration('namespace')
+        
     # DNN Image Encoder parameters
     input_image_width = LaunchConfiguration('input_image_width')
     input_image_height = LaunchConfiguration('input_image_height')
@@ -94,7 +105,8 @@ def generate_launch_description():
             'network_image_height': network_image_height,
             'image_mean': image_mean,
             'image_stddev': image_stddev,
-        }]
+        }],
+        namespace=namespace
     )
 
     tensor_rt_node = ComposableNode(
@@ -109,8 +121,9 @@ def generate_launch_description():
             'input_tensor_names': input_tensor_names,
             'input_binding_names': input_binding_names,
             'verbose': verbose,
-            'force_engine_update': force_engine_update
-        }]
+            'force_engine_update': force_engine_update,
+        }],
+        namespace=namespace
     )
 
     yolov8_decoder_node = ComposableNode(
@@ -120,7 +133,8 @@ def generate_launch_description():
         parameters=[{
             'confidence_threshold': confidence_threshold,
             'nms_threshold': nms_threshold,
-        }]
+        }],
+        namespace=namespace
     )
 
     tensor_rt_container = ComposableNodeContainer(
@@ -130,8 +144,7 @@ def generate_launch_description():
         composable_node_descriptions=[encoder_node, tensor_rt_node, yolov8_decoder_node],
         output='screen',
         arguments=['--ros-args', '--log-level', 'INFO'],
-        namespace=''
+        namespace=namespace
     )
-
     final_launch_description = launch_args + [tensor_rt_container]
     return launch.LaunchDescription(final_launch_description)
