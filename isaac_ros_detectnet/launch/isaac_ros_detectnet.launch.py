@@ -20,6 +20,8 @@ import os
 import launch
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
+from launch.substitutions import LaunchConfiguration
 
 
 def generate_launch_description():
@@ -33,13 +35,29 @@ def generate_launch_description():
     with open(labels_file_path, 'r') as fd:
         label_list = fd.read().strip().splitlines()
 
+    launch_args = [
+        DeclareLaunchArgument(
+            'namespace',
+            default_value='',
+            description='Namespace for the nodes'
+        ),
+        ExecuteProcess(
+            cmd=['echo', 'Namespace is:', LaunchConfiguration('namespace')],
+            output='screen',
+        ),
+    ]
+
+    # Namespace
+    namespace = LaunchConfiguration('namespace')
+
     encoder_node = ComposableNode(
         name='dnn_image_encoder',
+        namespace=namespace,
         package='isaac_ros_dnn_image_encoder',
         plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
         parameters=[{
-            'input_image_width': 1200,
-            'input_image_height': 632,
+            'input_image_width': 640,
+            'input_image_height': 480,
             'network_image_width': 1200,
             'network_image_height': 632,
             'image_mean': [0.0, 0.0, 0.0],
@@ -51,6 +69,7 @@ def generate_launch_description():
 
     triton_node = ComposableNode(
         name='triton_node',
+        namespace=namespace,
         package='isaac_ros_triton',
         plugin='nvidia::isaac_ros::dnn_inference::TritonNode',
         parameters=[{
@@ -77,7 +96,7 @@ def generate_launch_description():
 
     container = ComposableNodeContainer(
         name='detectnet_container',
-        namespace='detectnet_container',
+        namespace=namespace,
         package='rclcpp_components',
         executable='component_container_mt',
         composable_node_descriptions=[
@@ -85,4 +104,4 @@ def generate_launch_description():
         output='screen'
     )
 
-    return launch.LaunchDescription([container])
+    return launch.LaunchDescription(launch_args + [container])
