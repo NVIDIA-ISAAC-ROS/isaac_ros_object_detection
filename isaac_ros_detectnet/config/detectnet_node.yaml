@@ -22,12 +22,10 @@ components:
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
     capacity: 12
-    policy: 0
 - name: detections_out
   type: nvidia::gxf::DoubleBufferTransmitter
   parameters:
     capacity: 12
-    policy: 0
 - name: allocator
   type: nvidia::gxf::UnboundedAllocator
 - name: detectnet_decoder
@@ -64,7 +62,6 @@ components:
   type: nvidia::gxf::DoubleBufferReceiver
   parameters:
     capacity: 2
-    policy: 0
 - type: nvidia::gxf::MessageAvailableSchedulingTerm
   parameters:
     receiver: signal

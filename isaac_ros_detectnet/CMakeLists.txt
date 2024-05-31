@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,14 +30,11 @@ find_package(ament_cmake_python REQUIRED)
 ament_auto_add_library(detectnet_decoder_node SHARED src/detectnet_decoder_node.cpp)
 rclcpp_components_register_nodes(detectnet_decoder_node "nvidia::isaac_ros::detectnet::DetectNetDecoderNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::detectnet::DetectNetDecoderNode;$<TARGET_FILE:detectnet_decoder_node>\n")
-
-### Install extensions built from source
-
-# DetectNet
-add_subdirectory(gxf/detectnet)
-install(TARGETS gxf_detectnet DESTINATION share/${PROJECT_NAME}/gxf/lib/detectnet)
-
-### End extensions
+set_target_properties(detectnet_decoder_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -58,11 +55,11 @@ ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
   scripts/isaac_ros_detectnet_visualizer.py
-  DESTINATION lib/${PROJECT_NAME}
+  scripts/setup_model.sh
+DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY
-  resources/rosbags/detectnet_rosbag
   DESTINATION share/${PROJECT_NAME}
 )
 

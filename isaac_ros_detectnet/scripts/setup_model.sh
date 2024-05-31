@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
 # Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
@@ -23,7 +25,7 @@ MODEL_LINK="https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/d
 MODEL_FILE_NAME="resnet34_peoplenet_int8.etlt"
 HEIGHT="632"
 WIDTH="1200"
-CONFIG_FILE_PATH="isaac_ros_detectnet/resources/peoplenet_config.pbtxt"
+CONFIG_FILE="peoplenet_config.pbtxt"
 PRECISION="int8"
 OUTPUT_LAYERS="output_cov/Sigmoid,output_bbox/BiasAdd"
 
@@ -34,7 +36,7 @@ function print_parameters() {
   echo MODEL_LINK : $MODEL_LINK
   echo HEIGHT : $HEIGHT
   echo WIDTH : $WIDTH
-  echo CONFIG_FILE_PATH : $CONFIG_FILE_PATH
+  echo CONFIG_FILE : $CONFIG_FILE
   echo "***************************"
   echo
 }
@@ -56,12 +58,25 @@ function check_labels_files() {
   fi
 }
 
+# Function that extracts the last word in the three-word chain after "models/"
+extract_model_name() {
+    url="$1"
+    # Extract the three-word chain after "models/"
+    three_word_chain=$(echo $url | grep -oP 'models/\K([^/]+)(/[^/]+){2}')
+    # Extract the last word
+    last_word=$(echo $three_word_chain | grep -oP '[^/]+$')
+    echo $last_word
+}
+
 function setup_model() {
   # Download pre-trained ETLT model to appropriate directory
-  echo Creating Directory : /tmp/models/detectnet/1
-  rm -rf /tmp/models
-  mkdir -p /tmp/models/detectnet/1
-  cd /tmp/models/detectnet/1
+  # Extract model names from URLs
+  model_name_from_model_link=$(extract_model_name "$MODEL_LINK")
+  echo "Model name from model link: $model_name_from_model_link"
+  echo Creating Directory : ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/1
+  rm -rf ${ISAAC_ROS_WS}/isaac_ros_assets/models
+  mkdir -p ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/1
+  cd ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/1
   echo Downloading .etlt file from $MODEL_LINK
   echo From $MODEL_LINK
   wget --content-disposition $MODEL_LINK -O model.zip
@@ -83,10 +98,11 @@ function setup_model() {
     -e model.plan \
     -o $OUTPUT_LAYERS\
     $MODEL_FILE_NAME
-  echo Copying .pbtxt config file to /tmp/models/detectnet
+  echo Copying .pbtxt config file to ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link
   cd /workspaces/isaac_ros-dev/src/isaac_ros_object_detection/isaac_ros_detectnet
-  cp $CONFIG_FILE_PATH \
-    /tmp/models/detectnet/config.pbtxt
+  export ISAAC_ROS_DETECTNET_PATH=$(ros2 pkg prefix isaac_ros_detectnet --share)
+  cp $ISAAC_ROS_DETECTNET_PATH/config/$CONFIG_FILE \
+    ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/config.pbtxt
   echo Completed quickstart setup
 }
 
@@ -128,7 +144,7 @@ while true; do
           shift 2
           ;;
         -c|--config-file)
-          CONFIG_FILE_PATH="$2"
+          CONFIG_FILE="$2"
           shift 2
           ;;
         -p|--precision)
