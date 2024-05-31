@@ -21,10 +21,10 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_detectnet</name>
-  <version>2.1.0</version>
+  <version>3.0.0</version>
   <description>DetectNet model processing</description>
 
-  <maintainer email="ashwinvk@nvidia.com">Ashwin Varghese Kuruttukulam</maintainer>
+  <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
   <license>Apache-2.0</license>
   <url type="website">https://developer.nvidia.com/isaac-ros/</url>
   <author>Ashwin Varghese Kuruttukulam</author>
@@ -40,6 +40,9 @@ SPDX-License-Identifier: Apache-2.0
   <depend>isaac_ros_nitros_tensor_list_type</depend>
 
   <build_depend>isaac_ros_common</build_depend>
+
+  <exec_depend>gxf_isaac_detectnet</exec_depend>
+  <exec_depend>isaac_ros_image_proc</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

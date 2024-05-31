@@ -16,8 +16,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 ---
-model_repository_paths:
-  - '/tmp/models'
 model_name: 'detectnet'
 bounding_box_scale: 35.0
 bounding_box_offset: 0.0

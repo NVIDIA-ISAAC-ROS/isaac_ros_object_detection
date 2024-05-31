@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,36 +17,48 @@
 
 import os
 
+from ament_index_python.packages import get_package_share_directory
 import launch
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
 
 def generate_launch_description():
     """Generate launch description for testing relevant nodes."""
-    launch_dir_path = os.path.dirname(os.path.realpath(__file__))
-    config = launch_dir_path + '/../config/params.yaml'
-    model_dir_path = '/tmp/models'
-
+    isaac_ros_ws_path = os.environ.get('ISAAC_ROS_WS', '')
+    model_dir_path = os.path.join(isaac_ros_ws_path,
+                                  'isaac_ros_assets/isaac_ros_detectnet/models')
     # Read labels from text file
     labels_file_path = f'{model_dir_path}/detectnet/1/labels.txt'
     with open(labels_file_path, 'r') as fd:
         label_list = fd.read().strip().splitlines()
+    launch_dir_path = os.path.dirname(os.path.realpath(__file__))
+    config = launch_dir_path + '/../config/params.yaml'
+    with open(labels_file_path, 'r') as fd:
+        label_list = fd.read().strip().splitlines()
 
-    encoder_node = ComposableNode(
-        name='dnn_image_encoder',
-        package='isaac_ros_dnn_image_encoder',
-        plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
-        parameters=[{
-            'input_image_width': 1200,
-            'input_image_height': 632,
-            'network_image_width': 1200,
-            'network_image_height': 632,
-            'image_mean': [0.0, 0.0, 0.0],
-            'image_stddev': [1.0, 1.0, 1.0],
-            'enable_padding': False
-        }],
-        remappings=[('encoded_tensor', 'tensor_pub')]
+    encoder_dir = get_package_share_directory('isaac_ros_dnn_image_encoder')
+    detectnet_encoder_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [os.path.join(encoder_dir, 'launch', 'dnn_image_encoder.launch.py')]
+        ),
+        launch_arguments={
+            'input_image_width': str(1200),
+            'input_image_height': str(632),
+            'network_image_width': str(1200),
+            'network_image_height': str(632),
+            'image_mean': str([0.0, 0.0, 0.0]),
+            'image_stddev': str([1.0, 1.0, 1.0]),
+            'enable_padding': 'False',
+            'attach_to_shared_component_container': 'True',
+            'component_container_name': 'detectnet_container/detectnet_container',
+            'dnn_image_encoder_namespace': 'detectnet_encoder',
+            'image_input_topic': '/image',
+            'camera_info_input_topic': '/camera_info',
+            'tensor_output_topic': '/tensor_pub',
+        }.items(),
     )
 
     triton_node = ComposableNode(
@@ -81,8 +93,8 @@ def generate_launch_description():
         package='rclcpp_components',
         executable='component_container_mt',
         composable_node_descriptions=[
-            encoder_node, triton_node, detectnet_decoder_node],
+            triton_node, detectnet_decoder_node],
         output='screen'
     )
 
-    return launch.LaunchDescription([container])
+    return launch.LaunchDescription([container, detectnet_encoder_launch])

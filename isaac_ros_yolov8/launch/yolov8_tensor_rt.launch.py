@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+
+from ament_index_python.packages import get_package_share_directory
 import launch
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
@@ -82,19 +86,25 @@ def generate_launch_description():
     confidence_threshold = LaunchConfiguration('confidence_threshold')
     nms_threshold = LaunchConfiguration('nms_threshold')
 
-    encoder_node = ComposableNode(
-        name='dnn_image_encoder',
-        package='isaac_ros_dnn_image_encoder',
-        plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
-        remappings=[('encoded_tensor', 'tensor_pub')],
-        parameters=[{
+    encoder_dir = get_package_share_directory('isaac_ros_dnn_image_encoder')
+    yolov8_encoder_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [os.path.join(encoder_dir, 'launch', 'dnn_image_encoder.launch.py')]
+        ),
+        launch_arguments={
             'input_image_width': input_image_width,
             'input_image_height': input_image_height,
             'network_image_width': network_image_width,
             'network_image_height': network_image_height,
             'image_mean': image_mean,
             'image_stddev': image_stddev,
-        }]
+            'attach_to_shared_component_container': 'True',
+            'component_container_name': 'tensor_rt_container',
+            'dnn_image_encoder_namespace': 'yolov8_encoder',
+            'image_input_topic': '/image',
+            'camera_info_input_topic': '/camera_info',
+            'tensor_output_topic': '/tensor_pub',
+        }.items(),
     )
 
     tensor_rt_node = ComposableNode(
@@ -127,11 +137,11 @@ def generate_launch_description():
         name='tensor_rt_container',
         package='rclcpp_components',
         executable='component_container_mt',
-        composable_node_descriptions=[encoder_node, tensor_rt_node, yolov8_decoder_node],
+        composable_node_descriptions=[tensor_rt_node, yolov8_decoder_node],
         output='screen',
         arguments=['--ros-args', '--log-level', 'INFO'],
         namespace=''
     )
 
-    final_launch_description = launch_args + [tensor_rt_container]
+    final_launch_description = launch_args + [tensor_rt_container, yolov8_encoder_launch]
     return launch.LaunchDescription(final_launch_description)

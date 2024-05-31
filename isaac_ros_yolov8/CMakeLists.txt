@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +38,10 @@ find_package(ament_cmake_python REQUIRED)
 ament_auto_add_library(yolov8_decoder_node SHARED src/yolov8_decoder_node.cpp)
 rclcpp_components_register_nodes(yolov8_decoder_node "nvidia::isaac_ros::yolov8::YoloV8DecoderNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::yolov8::YoloV8DecoderNode;$<TARGET_FILE:yolov8_decoder_node>\n")
+set_target_properties(yolov8_decoder_node PROPERTIES
+  BUILD_WITH_INSTALL_RPATH TRUE
+  BUILD_RPATH_USE_ORIGIN TRUE
+  INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 target_link_libraries(yolov8_decoder_node ${OpenCV_LIBRARIES})
 

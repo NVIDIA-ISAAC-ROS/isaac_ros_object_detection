@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,14 +33,17 @@ from pprint import pprint
 import subprocess
 import time
 
+from ament_index_python.packages import get_package_share_directory
 from isaac_ros_test import IsaacROSBaseTest, JSONConversion
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions.composable_node_container import ComposableNodeContainer
 from launch_ros.descriptions.composable_node import ComposableNode
 
 import pytest
 import rclpy
 
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import CameraInfo, Image
 from vision_msgs.msg import Detection2DArray
 
 _TEST_CASE_NAMESPACE = 'detectnet_node_test'
@@ -89,19 +92,22 @@ def generate_test_description():
     print(
         f'Finished generating engine file (took {int(time.time() - start_time)}s)')
 
-    encoder_node = ComposableNode(
-        name='DnnImageEncoderNode',
-        package='isaac_ros_dnn_image_encoder',
-        plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
-        namespace=IsaacROSDetectNetPipelineTest.generate_namespace(
-            _TEST_CASE_NAMESPACE),
-        parameters=[{
-            'input_image_width': 640,
-            'input_image_height': 368,
-            'network_image_width': 640,
-            'network_image_height': 368
-        }],
-        remappings=[('encoded_tensor', 'tensor_pub')]
+    encoder_dir = get_package_share_directory('isaac_ros_dnn_image_encoder')
+    centerpose_encoder_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            [os.path.join(encoder_dir, 'launch', 'dnn_image_encoder.launch.py')]
+        ),
+        launch_arguments={
+            'input_image_width': '640',
+            'input_image_height': '368',
+            'network_image_width': '640',
+            'network_image_height': '368',
+            'attach_to_shared_component_container': 'True',
+            'component_container_name': 'detectnet_container',
+            'dnn_image_encoder_namespace': IsaacROSDetectNetPipelineTest.generate_namespace(
+                _TEST_CASE_NAMESPACE),
+            'tensor_output_topic': 'tensor_pub',
+        }.items(),
     )
 
     triton_node = ComposableNode(
@@ -152,13 +158,13 @@ def generate_test_description():
         executable='component_container_mt',
         composable_node_descriptions=[
             triton_node,
-            encoder_node,
             detectnet_decoder_node
         ],
         output='screen'
     )
 
-    return IsaacROSDetectNetPipelineTest.generate_test_description([container])
+    return IsaacROSDetectNetPipelineTest.generate_test_description(
+        [container, centerpose_encoder_launch])
 
 
 class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
@@ -177,9 +183,11 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
 
         """Expect the node to segment an image."""
         self.generate_namespace_lookup(
-            ['image', 'detectnet/detections'], _TEST_CASE_NAMESPACE)
+            ['image', 'detectnet/detections', 'camera_info'], _TEST_CASE_NAMESPACE)
         image_pub = self.node.create_publisher(
             Image, self.namespaces['image'], self.DEFAULT_QOS)
+        camera_info_pub = self.node.create_publisher(
+            CameraInfo, self.namespaces['camera_info'], self.DEFAULT_QOS)
         received_messages = {}
         detectnet_detections = self.create_logging_subscribers(
             [('detectnet/detections', Detection2DArray)],
@@ -192,6 +200,9 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
             image = JSONConversion.load_image_from_json(
                 test_folder / 'detections.json')
             image.header.stamp = self.node.get_clock().now().to_msg()
+            camera_info = CameraInfo()
+            camera_info.header = image.header
+            camera_info.distortion_model = 'plumb_bob'
             ground_truth = open(test_folder.joinpath(
                 'expected_detections.txt'), 'r')
             expected_detections = []
@@ -210,6 +221,7 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
             done = False
             while time.time() < end_time:
                 image_pub.publish(image)
+                camera_info_pub.publish(camera_info)
                 rclpy.spin_once(self.node, timeout_sec=0.1)
 
                 if 'detectnet/detections' in received_messages:
