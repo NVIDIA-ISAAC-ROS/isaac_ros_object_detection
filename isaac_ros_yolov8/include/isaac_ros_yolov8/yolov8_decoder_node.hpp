@@ -45,7 +45,6 @@ public:
 
 private:
   void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView & msg);
-
   // Subscription to input NitrosTensorList messages
   std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
       nvidia::isaac_ros::nitros::NitrosTensorListView>> nitros_sub_;
@@ -62,6 +61,7 @@ private:
   long int target_width_{};
   long int target_height_{};
   long int num_classes_{};
+
 };
 
 }  // namespace yolov8

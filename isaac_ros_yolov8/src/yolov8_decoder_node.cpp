@@ -50,6 +50,8 @@ YoloV8DecoderNode::YoloV8DecoderNode(const rclcpp::NodeOptions options)
       nvidia::isaac_ros::nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name,
       std::bind(&YoloV8DecoderNode::InputCallback, this,
       std::placeholders::_1))},
+  
+  // Publisher for output Detection2DArray messages
   pub_{create_publisher<vision_msgs::msg::Detection2DArray>(
       "detections_output", 50)},
   tensor_name_{declare_parameter<std::string>("tensor_name", "output_tensor")},
@@ -58,13 +60,15 @@ YoloV8DecoderNode::YoloV8DecoderNode(const rclcpp::NodeOptions options)
   target_width_{declare_parameter<int>("target_width", 640)},
   target_height_{declare_parameter<int>("target_height", 480)},
   num_classes_{declare_parameter<int>("num_classes", 3)}
+  
 {}
+
 
 YoloV8DecoderNode::~YoloV8DecoderNode() = default;
 
 void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView& msg)
 {
-
+  
   long int img_width = target_width_; // Specify target image width
   long int img_height = target_height_; // Specify target image height
   long int num_classes = num_classes_; // Specify number of classes
@@ -145,12 +149,16 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
 
     detection.header.stamp.sec = msg.GetTimestampSeconds();
     detection.header.stamp.nanosec = msg.GetTimestampNanoseconds();
+    // detection.header.frame_id = frame_id_;
+    detection.header.frame_id = msg.GetFrameId();
+    
 
     final_detections_arr.detections.push_back(detection);
   }
 
   final_detections_arr.header.stamp.sec = msg.GetTimestampSeconds();
   final_detections_arr.header.stamp.nanosec = msg.GetTimestampNanoseconds();
+  final_detections_arr.header.frame_id = msg.GetFrameId();
   pub_->publish(final_detections_arr);
 }
 

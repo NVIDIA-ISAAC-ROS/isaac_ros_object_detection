@@ -133,6 +133,8 @@ def generate_launch_description():
         parameters=[{
             'confidence_threshold': confidence_threshold,
             'nms_threshold': nms_threshold,
+            'target_width' : 1280,
+            'target_height' : 720,
         }],
         namespace=namespace
     )
