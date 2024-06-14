@@ -79,8 +79,8 @@ def generate_launch_description():
             'disable_padding': True
         }],
         remappings=[
-            ('image', 'front_stereo_camera/left_rgb/image_raw'),
-            ('camera_info', 'front_stereo_camera/left_rgb/camerainfo')
+            ('image', 'front_stereo_camera/left/image_rect_color'),
+            ('camera_info', 'front_stereo_camera/left/camera_info')
         ]
     )
     pad_node = ComposableNode(

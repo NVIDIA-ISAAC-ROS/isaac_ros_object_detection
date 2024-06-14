@@ -74,7 +74,7 @@ function setup_model() {
   model_name_from_model_link=$(extract_model_name "$MODEL_LINK")
   echo "Model name from model link: $model_name_from_model_link"
   echo Creating Directory : ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/1
-  rm -rf ${ISAAC_ROS_WS}/isaac_ros_assets/models
+  rm -rf ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link
   mkdir -p ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/1
   cd ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/1
   echo Downloading .etlt file from $MODEL_LINK
@@ -99,7 +99,6 @@ function setup_model() {
     -o $OUTPUT_LAYERS\
     $MODEL_FILE_NAME
   echo Copying .pbtxt config file to ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link
-  cd /workspaces/isaac_ros-dev/src/isaac_ros_object_detection/isaac_ros_detectnet
   export ISAAC_ROS_DETECTNET_PATH=$(ros2 pkg prefix isaac_ros_detectnet --share)
   cp $ISAAC_ROS_DETECTNET_PATH/config/$CONFIG_FILE \
     ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/config.pbtxt
