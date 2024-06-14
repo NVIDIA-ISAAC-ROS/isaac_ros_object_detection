@@ -48,10 +48,10 @@ def generate_launch_description():
                 'encoding_desired': 'rgb8',
         }],
         remappings=[
-            ('camera_info', 'front_stereo_camera/left_rgb/camerainfo'),
-            ('image', 'front_stereo_camera/left_rgb/image_raw'),
-            ('resize/camera_info', 'front_stereo_camera/left_rgb/camerainfo_resize'),
-            ('resize/image', 'front_stereo_camera/left_rgb/image_resize')]
+            ('camera_info', 'front_stereo_camera/left/camera_info'),
+            ('image', 'front_stereo_camera/left/image_rect_color'),
+            ('resize/camera_info', 'front_stereo_camera/left/camera_info_resize'),
+            ('resize/image', 'front_stereo_camera/left/image_resize')]
     )
 
     encoder_dir = get_package_share_directory('isaac_ros_dnn_image_encoder')
@@ -71,8 +71,8 @@ def generate_launch_description():
             'attach_to_shared_component_container': 'True',
             'component_container_name': 'detectnet_container/detectnet_container',
             'dnn_image_encoder_namespace': 'detectnet_encoder',
-            'image_input_topic': '/front_stereo_camera/left_rgb/image_resize',
-            'camera_info_input_topic': '/front_stereo_camera/left_rgb/camerainfo_resize',
+            'image_input_topic': '/front_stereo_camera/left/image_resize',
+            'camera_info_input_topic': '/front_stereo_camera/left/camera_info_resize',
             'tensor_output_topic': '/tensor_pub',
         }.items(),
     )
@@ -117,7 +117,7 @@ def generate_launch_description():
         package='isaac_ros_detectnet',
         executable='isaac_ros_detectnet_visualizer.py',
         name='detectnet_visualizer',
-        remappings=[('image', 'front_stereo_camera/left_rgb/image_resize')]
+        remappings=[('image', 'front_stereo_camera/left/image_resize')]
 
     )
 

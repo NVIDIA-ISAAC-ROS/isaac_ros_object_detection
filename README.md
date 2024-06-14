@@ -7,28 +7,35 @@ NVIDIA-accelerated, deep learned model support for object detection including De
 
 ## Overview
 
-[Isaac ROS Object Detection](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_object_detection) contains an ROS 2 package to perform object
-detection. `isaac_ros_detectnet` provides a method for spatial
+[Isaac ROS Object Detection](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_object_detection) contains ROS 2 packages to perform object
+detection.
+`isaac_ros_rtdetr`, `isaac_ros_detectnet`, and `isaac_ros_yolov8` each provide a method for spatial
 classification using bounding boxes with an input image. Classification
-is performed by a GPU-accelerated
-[DetectNet](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/pretrained_detectnet_v2)
-model. The output prediction can be used by perception functions to
+is performed by a GPU-accelerated model of the appropriate architecture:
+
+- `isaac_ros_rtdetr`: [RT-DETR models](https://nvidia-isaac-ros.github.io/concepts/object_detection/rtdetr/index.html)
+- `isaac_ros_detectnet`: [DetectNet models](https://nvidia-isaac-ros.github.io/concepts/object_detection/detectnet/index.html)
+- `isaac_ros_yolov8`: [YOLOv8 models](https://nvidia-isaac-ros.github.io/concepts/object_detection/yolov8/index.html)
+
+The output prediction can be used by perception functions to
 understand the presence and spatial location of an object in an image.
 
 <div align="center"><a class="reference internal image-reference" href="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/main/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_nodegraph.png/"><img alt="image" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/main/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_nodegraph.png/" width="800px"/></a></div>
 
-`isaac_ros_detectnet` is used in a graph of nodes to provide a
+Each Isaac ROS Object Detection package is used in a graph of nodes to provide a
 bounding box detection array with object classes from an input image. A
-[DetectNet](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/tao/models/pretrained_detectnet_v2)
-model is required to produce the detection array. Input images may need
-to be cropped and resized to maintain the aspect ratio and match the
-input resolution of DetectNet; image resolution may be reduced to
+trained model of the appropriate architecture is required to produce the detection array.
+
+Input images may need to be cropped and resized to maintain the aspect ratio and match the
+input resolution of the specific object detection model; image resolution may be reduced to
 improve DNN inference performance, which typically scales directly with
 the number of pixels in the image. `isaac_ros_dnn_image_encoder`
-provides a DNN encoder to process the input image into Tensors for the
-DetectNet model. Prediction results are clustered in the DNN decoder to
-group multiple detections on the same object. Output is provided as a
-detection array with object classes.
+provides DNN encoder utilities to process the input image into Tensors for the
+object detection models.
+Prediction results are decoded in model-specific ways,
+often involving clustering and thresholding to group multiple detections
+on the same object and reduce spurious detections.
+Output is provided as a detection array with object classes.
 
 DNNs have a minimum number of pixels that need to be visible on the
 object to provide a classification prediction. If a person cannot see
@@ -41,10 +48,6 @@ image, which provides 1K pixels for the person, and fail to detect the
 same person in the downscaled resolution, which only provides 0.25K
 pixels for the person.
 
-> [!Note]
-> DetectNet is similar to other popular object detection
-> models such as YOLOV3, FasterRCNN, and SSD, while being efficient at
-> detecting multiple object classes in large images.
 <div align="center"><a class="reference internal image-reference" href="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/main/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_example_bboxseg.png/"><img alt="image" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/main/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_example_bboxseg.png/" width="800px"/></a></div>
 
 Object detection classifies a rectangle of pixels as containing an
