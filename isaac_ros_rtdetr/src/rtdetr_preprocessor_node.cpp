@@ -79,10 +79,9 @@ void RtDetrPreprocessorNode::InputCallback(
     output_image_buffer, input_image_tensor.GetBuffer(),
     input_image_tensor.GetTensorSize(), cudaMemcpyDefault, stream_);
 
-  // The model only requires the larger of the 2 dimensions.
-  // Narrowing conversion required because model expects int32_t, but ROS 2 only supports int64_t
-  int32_t image_size = static_cast<int32_t>(std::max(image_height_, image_width_));
-  int32_t output_size[2]{image_size, image_size};
+  int64_t image_size = std::max(image_height_, image_width_);
+
+  int64_t output_size[2]{image_size, image_size};
   void * output_size_buffer;
   cudaMallocAsync(&output_size_buffer, sizeof(output_size), stream_);
   cudaMemcpyAsync(output_size_buffer, output_size, sizeof(output_size), cudaMemcpyDefault, stream_);
@@ -107,7 +106,7 @@ void RtDetrPreprocessorNode::InputCallback(
     (
       nvidia::isaac_ros::nitros::NitrosTensorBuilder()
       .WithShape({1, 2})
-      .WithDataType(nvidia::isaac_ros::nitros::NitrosDataType::kInt32)
+      .WithDataType(nvidia::isaac_ros::nitros::NitrosDataType::kInt64)
       .WithData(output_size_buffer)
       .Build()
     )

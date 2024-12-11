@@ -31,26 +31,39 @@ import os
 import pathlib
 import time
 
-from isaac_ros_test import IsaacROSBaseTest, JSONConversion
+from isaac_ros_test import IsaacROSBaseTest, JSONConversion, MockModelGenerator
 from launch_ros.actions.composable_node_container import ComposableNodeContainer
 from launch_ros.descriptions.composable_node import ComposableNode
-
 import pytest
 import rclpy
-
 from sensor_msgs.msg import CameraInfo, Image
+import torch
 from vision_msgs.msg import Detection2DArray
 
-MODEL_FILE_NAME = 'rtdetr_dummy_pol.onnx'
 
+MODEL_ONNX_PATH = '/tmp/model.onnx'
 MODEL_GENERATION_TIMEOUT_SEC = 300
 INIT_WAIT_SEC = 10
-MODEL_PATH = '/tmp/rtdetr_dummy_pol.plan'
+MODEL_PLAN_PATH = '/tmp/model.plan'
 
 
 @pytest.mark.rostest
 def generate_test_description():
     """Generate launch description for testing relevant nodes."""
+    # Generate a dummy model with RT-DETR-like I/O
+    MockModelGenerator.generate(
+        input_bindings=[
+            MockModelGenerator.Binding('images', [-1, 3, 640, 640], torch.float32),
+            MockModelGenerator.Binding('orig_target_sizes', [-1, 2], torch.int64)
+        ],
+        output_bindings=[
+            MockModelGenerator.Binding('labels', [-1, 300], torch.int64),
+            MockModelGenerator.Binding('boxes', [-1, 300, 4], torch.float32),
+            MockModelGenerator.Binding('scores', [-1, 300], torch.float32)
+        ],
+        output_onnx_path=MODEL_ONNX_PATH
+    )
+
     resize_node = ComposableNode(
         name='resize_node',
         package='isaac_ros_image_proc',
@@ -156,8 +169,8 @@ def generate_test_description():
         plugin='nvidia::isaac_ros::dnn_inference::TensorRTNode',
         namespace=IsaacROSRtDetrPOLTest.generate_namespace(),
         parameters=[{
-            'model_file_path': f'{os.path.dirname(__file__)}/dummy_model/{MODEL_FILE_NAME}',
-            'engine_file_path': MODEL_PATH,
+            'model_file_path': MODEL_ONNX_PATH,
+            'engine_file_path': MODEL_PLAN_PATH,
             'input_tensor_names': ['images', 'orig_target_sizes'],
             'input_binding_names': ['images', 'orig_target_sizes'],
             'output_binding_names': ['labels', 'boxes', 'scores'],
@@ -203,7 +216,7 @@ class IsaacROSRtDetrPOLTest(IsaacROSBaseTest):
         self.node._logger.info(f'Generating model (timeout={MODEL_GENERATION_TIMEOUT_SEC}s)')
         start_time = time.time()
         wait_cycles = 1
-        while not os.path.isfile(MODEL_PATH):
+        while not os.path.isfile(MODEL_PLAN_PATH):
             time_diff = time.time() - start_time
             if time_diff > MODEL_GENERATION_TIMEOUT_SEC:
                 self.fail('Model generation timed out')

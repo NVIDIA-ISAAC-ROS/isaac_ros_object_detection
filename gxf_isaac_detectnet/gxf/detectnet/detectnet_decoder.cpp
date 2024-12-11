@@ -15,18 +15,21 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "detectnet_decoder.hpp"
-#include "detection2_d_array_message.hpp"
-
-#include <string>
 #include <climits>
+#include <memory>
+#include <string>
+#include <vector>
 
-#include "gxf/multimedia/camera.hpp"
-#include "gxf/multimedia/video.hpp"
-#include "gxf/core/parameter_parser_std.hpp"
-#include "gxf/std/timestamp.hpp"
+#include "./detection2_d_array_message.hpp"
+#include "./detectnet_decoder.hpp"
+
 #include "cuda.h"
 #include "cuda_runtime.h"
+
+#include "gxf/core/parameter_parser_std.hpp"
+#include "gxf/multimedia/camera.hpp"
+#include "gxf/multimedia/video.hpp"
+#include "gxf/std/timestamp.hpp"
 
 
 namespace nvidia
@@ -67,10 +70,10 @@ NvDsInferObjectDetectionInfo GetNewDetectionInfo(
 }
 
 void FillMessage(
-  Detection2DParts &message_parts,
-  const std::vector<NvDsInferObjectDetectionInfo> &detection_info_vector,
+  Detection2DParts& message_parts,
+  const std::vector<NvDsInferObjectDetectionInfo>& detection_info_vector,
   gxf::Handle<nvidia::gxf::Timestamp> tensorlist_timestamp,
-  size_t num_detections, const std::vector<std::string> &label_list)
+  size_t num_detections, const std::vector<std::string>& label_list)
 {
   for (uint32_t i = 0; i < num_detections; i++) {
     NvDsInferObjectDetectionInfo detection_info = detection_info_vector[i];
@@ -89,7 +92,7 @@ void FillMessage(
   }
   *(message_parts.timestamp) = *tensorlist_timestamp;
 }
-} // anonymous namespace
+}  // anonymous namespace
 
 
 gxf_result_t DetectnetDecoder::registerInterface(gxf::Registrar * registrar) noexcept
@@ -106,8 +109,8 @@ gxf_result_t DetectnetDecoder::registerInterface(gxf::Registrar * registrar) noe
 
   result &= registrar->parameter(
     label_list_, "label_list", "List of network labels",
-    "List of labels corresponding to the int labels received from the tensors", {"person", "bag",
-      "face"});
+    "List of labels corresponding to the int labels received from the tensors",
+    {"person", "bag", "face"});
 
   result &= registrar->parameter(
     enable_confidence_threshold_, "enable_confidence_threshold", "Enable Confidence Threshold",
@@ -131,27 +134,27 @@ gxf_result_t DetectnetDecoder::registerInterface(gxf::Registrar * registrar) noe
 
   result &= registrar->parameter(
     dbscan_confidence_threshold_, "dbscan_confidence_threshold", "Dbscan Confidence Threshold",
-    "Minimum score in a cluster for the cluster to be considered an object \
-     during grouping. Different clustering may cause the algorithm \
-     to use different scores.",
+    "Minimum score in a cluster for the cluster to be considered an object "
+    "during grouping. Different clustering may cause the algorithm "
+    "to use different scores.",
     0.6);
 
   result &= registrar->parameter(
     dbscan_eps_, "dbscan_eps", "Dbscan Epsilon",
-    "Holds the epsilon to control merging of overlapping boxes. \
-    Refer to OpenCV groupRectangles and DBSCAN documentation for more information on epsilon. ",
+    "Holds the epsilon to control merging of overlapping boxes. "
+    "Refer to OpenCV groupRectangles and DBSCAN documentation for more information on epsilon. ",
     0.01);
 
   result &= registrar->parameter(
     dbscan_min_boxes_, "dbscan_min_boxes", "Dbscan Minimum Boxes",
-    "Holds the minimum number of boxes in a cluster to be considered \
-     an object during grouping using DBSCAN",
+    "Holds the minimum number of boxes in a cluster to be considered "
+    "an object during grouping using DBSCAN",
     1);
 
   result &= registrar->parameter(
     dbscan_enable_athr_filter_, "dbscan_enable_athr_filter", "Dbscan Enable Athr Filter",
-    "true enables the area-to-hit ratio (ATHR) filter. \
-     The ATHR is calculated as: ATHR = sqrt(clusterArea) / nObjectsInCluster.",
+    "true enables the area-to-hit ratio (ATHR) filter. "
+    "The ATHR is calculated as: ATHR = sqrt(clusterArea) / nObjectsInCluster.",
     0);
 
   result &= registrar->parameter(
@@ -196,7 +199,6 @@ gxf_result_t DetectnetDecoder::start() noexcept
 
 gxf_result_t DetectnetDecoder::tick() noexcept
 {
-
   gxf::Expected<void> result;
 
   // Receive disparity image and left/right camera info
@@ -272,9 +274,10 @@ gxf_result_t DetectnetDecoder::tick() noexcept
     return GXF_FAILURE;
   }
 
-  float bbox_tensor_arr[bbox_tensor->size() / sizeof(float)]; // since data in tensor is kFloat32
+  // data in tensor is kFloat32
+  std::vector<float> bbox_tensor_arr(bbox_tensor->size() / sizeof(float));
   const cudaError_t cuda_error_bbox_tensor = cudaMemcpy(
-    &bbox_tensor_arr, bbox_tensor->pointer(),
+    bbox_tensor_arr.data(), bbox_tensor->pointer(),
     bbox_tensor->size(), cudaMemcpyDeviceToHost);
   if (cuda_error_bbox_tensor != cudaSuccess) {
     GXF_LOG_ERROR("Error while copying kernel: %s", cudaGetErrorString(cuda_error_bbox_tensor));
@@ -315,8 +318,8 @@ gxf_result_t DetectnetDecoder::tick() noexcept
         float coverage = cov_tensor_arr[cov_pos];
 
         // Center of the grid in pixels
-        float grid_center_y = (row + bounding_box_offset_ ) * kStride;
-        float grid_center_x = (col + bounding_box_offset_ ) * kStride;
+        float grid_center_y = (row + bounding_box_offset_) * kStride;
+        float grid_center_x = (col + bounding_box_offset_) * kStride;
 
         // Get each element of the bounding box
         float bbox[kBoundingBoxParams];
@@ -342,7 +345,8 @@ gxf_result_t DetectnetDecoder::tick() noexcept
         // check if object_class is out of range for label_list_
         if (static_cast<size_t>(object_class) >= label_list_.get().size()) {
           GXF_LOG_ERROR(
-            "[DetectNet Decoder] object_class %i is out of range for provided label_list_ of size %lu", object_class,
+            "[DetectNet Decoder] object_class %i is out of range for provided "
+            "label_list_ of size %lu", object_class,
             label_list_.get().size());
           return GXF_FAILURE;
         }
@@ -360,7 +364,7 @@ gxf_result_t DetectnetDecoder::tick() noexcept
 
   size_t num_detections = detection_info_vector.size();
   if (enable_dbscan_clustering_) {
-    NvDsInferObjectDetectionInfo * detection_info_pointer = &detection_info_vector[0];
+    NvDsInferObjectDetectionInfo* detection_info_pointer = &detection_info_vector[0];
     NvDsInferDBScanHandle dbscan_hdl = NvDsInferDBScanCreate();
     if (dbscan_clustering_algorithm_ == kDbscanCluster) {
       NvDsInferDBScanCluster(dbscan_hdl, &params_, detection_info_pointer, &num_detections);
@@ -386,7 +390,6 @@ gxf_result_t DetectnetDecoder::tick() noexcept
           num_detections, label_list_);
         return detections_transmitter_->publish(message_parts.message);
       }));
-
 }
 }  // namespace isaac_ros
 }  // namespace nvidia

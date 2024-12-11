@@ -20,35 +20,19 @@ SPDX-License-Identifier: Apache-2.0
 
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>isaac_ros_rtdetr</name>
+  <name>isaac_ros_peoplenet_models_install</name>
   <version>3.2.0</version>
-  <description>RT-DETR model processing</description>
+  <description>Scripts for installing people detection models based on PeopleNet</description>
 
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
   <license>Apache-2.0</license>
-  <url type="website">https://developer.nvidia.com/isaac-ros/</url>
-  <author>Jaiveer Singh</author>
+  <url type="website">https://developer.nvidia.com/isaac-ros-gems/</url>
+  <author>Xinjie Yao</author>
 
-  <buildtool_depend>ament_cmake_auto</buildtool_depend>
-
-  <depend>rclcpp</depend>
-  <depend>rclcpp_components</depend>
-  <depend>vision_msgs</depend>
-  <depend>isaac_ros_nitros</depend>
-  <depend>isaac_ros_nitros_tensor_list_type</depend>
-  <depend>isaac_ros_managed_nitros</depend>
-  <depend>isaac_ros_tensor_list_interfaces</depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
   <build_depend>isaac_ros_common</build_depend>
-
-  <exec_depend>isaac_ros_dnn_image_encoder</exec_depend>
-  <exec_depend>isaac_ros_image_proc</exec_depend>
-  <exec_depend>isaac_ros_tensor_rt</exec_depend>
-  <exec_depend>gxf_isaac_optimizer</exec_depend>
-
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
-  <test_depend>isaac_ros_test</test_depend>
+  <depend>isaac_ros_detectnet</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

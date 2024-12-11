@@ -3,7 +3,7 @@ platform: "tensorrt_plan"
 max_batch_size: 16
 input [
   {
-    name: "input_1"
+    name: "input_1:0"
     data_type: TYPE_FP32
     format: FORMAT_NCHW
     dims: [ 3, 368, 640 ]
@@ -11,12 +11,12 @@ input [
 ]
 output [
   {
-        name: "output_bbox/BiasAdd"
+        name: "output_bbox/BiasAdd:0"
         data_type: TYPE_FP32
         dims: [ 8, 23, 40 ]
     },
     {
-        name: "output_cov/Sigmoid"
+        name: "output_cov/Sigmoid:0"
         data_type: TYPE_FP32
         dims: [ 2, 23, 40 ]
     }

@@ -24,6 +24,9 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import ComposableNodeContainer, Node
 from launch_ros.descriptions import ComposableNode
 
+DETECTNET_DEFAULT_WIDTH = 960
+DETECTNET_DEFAULT_HEIGHT = 544
+
 
 def generate_launch_description():
     """Generate launch description for testing relevant nodes."""
@@ -43,8 +46,8 @@ def generate_launch_description():
         plugin='nvidia::isaac_ros::image_proc::ResizeNode',
         name='image_resize_node_left',
         parameters=[{
-                'output_width': 1280,
-                'output_height': 720,
+                'output_width': DETECTNET_DEFAULT_WIDTH,
+                'output_height': DETECTNET_DEFAULT_HEIGHT,
                 'encoding_desired': 'rgb8',
         }],
         remappings=[
@@ -61,10 +64,10 @@ def generate_launch_description():
                           'dnn_image_encoder.launch.py')]
         ),
         launch_arguments={
-            'input_image_width': str(1280),
-            'input_image_height': str(720),
-            'network_image_width': str(1280),
-            'network_image_height': str(720),
+            'input_image_width': str(DETECTNET_DEFAULT_WIDTH),
+            'input_image_height': str(DETECTNET_DEFAULT_HEIGHT),
+            'network_image_width': str(DETECTNET_DEFAULT_WIDTH),
+            'network_image_height': str(DETECTNET_DEFAULT_HEIGHT),
             'image_mean': str([0.0, 0.0, 0.0]),
             'image_stddev': str([1.0, 1.0, 1.0]),
             'enable_padding': 'False',
@@ -85,10 +88,10 @@ def generate_launch_description():
             'model_name': 'peoplenet',
             'model_repository_paths': [model_dir_path],
             'input_tensor_names': ['input_tensor'],
-            'input_binding_names': ['input_1'],
+            'input_binding_names': ['input_1:0'],
             'input_tensor_formats': ['nitros_tensor_list_nchw_rgb_f32'],
             'output_tensor_names': ['output_cov', 'output_bbox'],
-            'output_binding_names': ['output_cov/Sigmoid', 'output_bbox/BiasAdd'],
+            'output_binding_names': ['output_cov/Sigmoid:0', 'output_bbox/BiasAdd:0'],
             'output_tensor_formats': ['nitros_tensor_list_nhwc_rgb_f32'],
             'log_level': 0
         }])
@@ -117,8 +120,7 @@ def generate_launch_description():
         package='isaac_ros_detectnet',
         executable='isaac_ros_detectnet_visualizer.py',
         name='detectnet_visualizer',
-        remappings=[('image', 'front_stereo_camera/left/image_resize')]
-
+        remappings=[('image', 'detectnet_encoder/resize/image')]
     )
 
     rqt_image_view_node = Node(
