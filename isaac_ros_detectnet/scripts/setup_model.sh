@@ -21,19 +21,20 @@
 # inside the Docker container
 
 # default arguments
-MODEL_LINK="https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/deployable_quantized_v2.5/zip"
-MODEL_FILE_NAME="resnet34_peoplenet_int8.etlt"
-HEIGHT="632"
-WIDTH="1200"
+MODEL_LINK="https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/deployable_quantized_onnx_v2.6.3/zip"
+MODEL_FILE_NAME="resnet34_peoplenet.onnx"
+HEIGHT="544"
+WIDTH="960"
 CONFIG_FILE="peoplenet_config.pbtxt"
 PRECISION="int8"
-OUTPUT_LAYERS="output_cov/Sigmoid,output_bbox/BiasAdd"
+MAX_BATCH_SIZE="16"
 
 function print_parameters() {
   echo
   echo "***************************"
   echo using parameters:
   echo MODEL_LINK : $MODEL_LINK
+  echo MAX_BATCH_SIZE : $MAX_BATCH_SIZE
   echo HEIGHT : $HEIGHT
   echo WIDTH : $WIDTH
   echo CONFIG_FILE : $CONFIG_FILE
@@ -69,39 +70,40 @@ extract_model_name() {
 }
 
 function setup_model() {
-  # Download pre-trained ETLT model to appropriate directory
+  # Download pre-traine ONNX model to appropriate directory
   # Extract model names from URLs
   model_name_from_model_link=$(extract_model_name "$MODEL_LINK")
+  OUTPUT_PATH=${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link
   echo "Model name from model link: $model_name_from_model_link"
-  echo Creating Directory : ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/1
-  rm -rf ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link
-  mkdir -p ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/1
-  cd ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/1
-  echo Downloading .etlt file from $MODEL_LINK
+  echo Creating Directory : "${OUTPUT_PATH}/1"
+  rm -rf ${OUTPUT_PATH}
+  mkdir -p ${OUTPUT_PATH}/1
+  cd ${OUTPUT_PATH}/1
+  echo Downloading .onnx file from $MODEL_LINK
   echo From $MODEL_LINK
   wget --content-disposition $MODEL_LINK -O model.zip
-  echo Unziping network model file .etlt
+  echo Unziping network model file .onnx
   unzip -o model.zip
-  echo Checking if labels.txt exists 
+  echo Checking if labels.txt exists
   check_labels_files
-  echo Converting .etlt to a TensorRT Engine Plan 
-  # This is the key for the provided pretrained model
-  # replace with your own key when using a model trained by any other means
-  export PRETRAINED_MODEL_ETLT_KEY='tlt_encode'
+  echo Converting .onnx to a TensorRT Engine Plan
+
   # if model doesnt have labels.txt file, then create one manually
   # create custom model
-  /opt/nvidia/tao/tao-converter \
-    -k $PRETRAINED_MODEL_ETLT_KEY \
-    -d 3,$HEIGHT,$WIDTH \
-    -p input_1,1x3x$HEIGHTx$WIDTH,1x3x$HEIGHTx$WIDTH,1x3x$HEIGHTx$WIDTH \
-    -t $PRECISION \
-    -e model.plan \
-    -o $OUTPUT_LAYERS\
-    $MODEL_FILE_NAME
-  echo Copying .pbtxt config file to ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link
+  /usr/src/tensorrt/bin/trtexec \
+    --maxShapes="input_1:0":${MAX_BATCH_SIZE}x3x${HEIGHT}x${WIDTH} \
+    --minShapes="input_1:0":1x3x${HEIGHT}x${WIDTH} \
+    --optShapes="input_1:0":1x3x${HEIGHT}x${WIDTH} \
+    --$PRECISION \
+    --calib="${OUTPUT_PATH}/1/resnet34_peoplenet_int8.txt" \
+    --onnx="${OUTPUT_PATH}/1/${MODEL_FILE_NAME}" \
+    --saveEngine="${OUTPUT_PATH}/1/model.plan" \
+    --skipInference
+
+  echo Copying .pbtxt config file to ${OUTPUT_PATH}
   export ISAAC_ROS_DETECTNET_PATH=$(ros2 pkg prefix isaac_ros_detectnet --share)
   cp $ISAAC_ROS_DETECTNET_PATH/config/$CONFIG_FILE \
-    ${ISAAC_ROS_WS}/isaac_ros_assets/models/$model_name_from_model_link/config.pbtxt
+    ${OUTPUT_PATH}/config.pbtxt
   echo Completed quickstart setup
 }
 
@@ -118,8 +120,8 @@ function show_help() {
 }
 
 # Get command line arguments
-OPTIONS=m:mfn:hgt:wid:c:p:ol:h
-LONGOPTS=model-link:,model-file-name:,height:,width:,config-file:,precision:,output-layers:,help
+OPTIONS=m:mfn:b:p:ol:h
+LONGOPTS=model-link:,model-file-name:,max-batch-size:,config-file:,precision:,output-layers:,help
 
 PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
 eval set -- "$PARSED"
@@ -134,14 +136,6 @@ while true; do
           MODEL_FILE_NAME="$2"
           shift 2
           ;;
-        --height)
-          HEIGHT="$2"
-          shift 2
-          ;;
-        --width)
-          WIDTH="$2"
-          shift 2
-          ;;
         -c|--config-file)
           CONFIG_FILE="$2"
           shift 2
@@ -150,8 +144,8 @@ while true; do
           PRECISION="$2"
           shift 2
           ;;
-        -ol|--output-layers)
-          OUTPUT_LAYERS="$2"
+        -b|--max-batch-size)
+          MAX_BATCH_SIZE="$2"
           shift 2
           ;;
         -h|--help)

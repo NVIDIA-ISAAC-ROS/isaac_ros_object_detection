@@ -47,7 +47,7 @@ if(BUILD_TESTING)
   endif()
 
   find_package(launch_testing_ament_cmake REQUIRED)
-  add_launch_test(test/isaac_ros_detectnet_pol_test.py TIMEOUT "600")
+  add_launch_test(test/isaac_ros_detectnet_pol_test.py TIMEOUT "900")
 endif()
 
 # Visualizer python scripts
@@ -62,5 +62,11 @@ DESTINATION lib/${PROJECT_NAME}
 install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
 )
+
+
+# Embed versioning information into installed files
+ament_index_get_resource(ISAAC_ROS_COMMON_CMAKE_PATH isaac_ros_common_cmake_path isaac_ros_common)
+include("${ISAAC_ROS_COMMON_CMAKE_PATH}/isaac_ros_common-version-info.cmake")
+generate_version_info(${PROJECT_NAME})
 
 ament_auto_package(INSTALL_TO_SHARE config launch)

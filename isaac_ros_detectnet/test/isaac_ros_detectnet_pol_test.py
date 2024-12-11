@@ -29,22 +29,21 @@ Proof-Of-Life test for the Isaac ROS DetectNet package.
 
 import os
 import pathlib
-from pprint import pprint
 import subprocess
 import time
 
 from ament_index_python.packages import get_package_share_directory
-from isaac_ros_test import IsaacROSBaseTest, JSONConversion
+from isaac_ros_test import IsaacROSBaseTest, JSONConversion, MockModelGenerator
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions.composable_node_container import ComposableNodeContainer
 from launch_ros.descriptions.composable_node import ComposableNode
-
 import pytest
 import rclpy
-
 from sensor_msgs.msg import CameraInfo, Image
+import torch
 from vision_msgs.msg import Detection2DArray
+
 
 _TEST_CASE_NAMESPACE = 'detectnet_node_test'
 
@@ -56,30 +55,42 @@ def generate_test_description():
     model_dir_path = launch_dir_path + '/dummy_model'
     model_name = 'detectnet'
     model_version = 1
+    onnx_path = f'{model_dir_path}/{model_name}/{model_version}/model.onnx'
     engine_file_path = f'{model_dir_path}/{model_name}/{model_version}/model.plan'
+
+    # Generate a mock model with DetectNet-like I/O
+    MockModelGenerator.generate(
+        input_bindings=[
+            MockModelGenerator.Binding('input_1:0', [-1, 3, 368, 640], torch.float32)
+        ],
+        output_bindings=[
+            MockModelGenerator.Binding('output_bbox/BiasAdd:0', [-1, 8, 23, 40], torch.float32),
+            MockModelGenerator.Binding('output_cov/Sigmoid:0', [-1, 2, 23, 40], torch.float32)
+        ],
+        output_onnx_path=onnx_path
+    )
 
     # Read labels from text file
     labels_file_path = f'{model_dir_path}/{model_name}/labels.txt'
     with open(labels_file_path, 'r') as fd:
         label_list = fd.read().strip().splitlines()
 
-    # Generate engine file using tao-converter
-    print('Generating engine file using tao-converter...')
-    tao_converter_args = [
-        '-k', '"object-detection-from-sim-pipeline"',
-        '-d', '3,368,640',
-        '-t', 'fp16',
-        '-p', 'input_1,1x3x368x640,1x3x368x640,1x3x368x640',
-        '-e', engine_file_path,
-        '-o', 'output_cov/Sigmoid,output_bbox/BiasAdd',
-        f'{model_dir_path}/{model_name}/1/resnet18_detector.etlt'
+    # Generate engine file using trtexec
+    print('Generating engine file using trtexec...')
+    trtexec_args = [
+        '--maxShapes=input_1:0:1x3x368x640',
+        '--minShapes=input_1:0:1x3x368x640',
+        '--optShapes=input_1:0:1x3x368x640',
+        f'--onnx={onnx_path}',
+        f'--saveEngine={engine_file_path}',
+        '--fp16',
     ]
-    tao_converter_executable = '/opt/nvidia/tao/tao-converter'
+    trtexec_executable = '/usr/src/tensorrt/bin/trtexec'
     print('Running command:\n' +
-          ' '.join([tao_converter_executable] + tao_converter_args))
+          ' '.join([trtexec_executable] + trtexec_args))
     start_time = time.time()
     result = subprocess.run(
-        [tao_converter_executable] + tao_converter_args,
+        [trtexec_executable] + trtexec_args,
         env=os.environ,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
@@ -120,10 +131,10 @@ def generate_test_description():
             'model_name': 'detectnet',
             'model_repository_paths': [model_dir_path],
             'input_tensor_names': ['input_tensor'],
-            'input_binding_names': ['input_1'],
+            'input_binding_names': ['input_1:0'],
             'input_tensor_formats': ['nitros_tensor_list_nchw_rgb_f32'],
             'output_tensor_names': ['output_cov', 'output_bbox'],
-            'output_binding_names': ['output_cov/Sigmoid', 'output_bbox/BiasAdd'],
+            'output_binding_names': ['output_cov/Sigmoid:0', 'output_bbox/BiasAdd:0'],
             'output_tensor_formats': ['nitros_tensor_list_nhwc_rgb_f32'],
             'log_level': 0
         }])
@@ -203,18 +214,6 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
             camera_info = CameraInfo()
             camera_info.header = image.header
             camera_info.distortion_model = 'plumb_bob'
-            ground_truth = open(test_folder.joinpath(
-                'expected_detections.txt'), 'r')
-            expected_detections = []
-
-            for ground_detection in ground_truth.readlines():
-                ground_detection_split = ground_detection.split()
-                gtd = [float(ground_detection_split[1]), float(ground_detection_split[2]),
-                       float(ground_detection_split[3]), float(ground_detection_split[4])]
-                expected_detections.append(
-                    {'width': int(gtd[0]), 'height': int(gtd[1]),
-                        'center': {'x': int(gtd[2]), 'y': int(gtd[3])}}
-                )
 
             TIMEOUT = 60
             end_time = time.time() + TIMEOUT
@@ -231,28 +230,6 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
             self.assertTrue(
                 done, "Didn't receive output on detectnet/detections topic!")
 
-            detection_list = received_messages['detectnet/detections'].detections
-
-            pprint(detection_list)
-
-            pixel_tolerance = 2.0
-
-            self.assertGreater(len(detection_list), 0, 'No detections in detection list!')
-
-            self.assertAlmostEqual(detection_list[0].bbox.size_x,
-                                   expected_detections[0]['width'],
-                                   None, 'Received incorrect width', pixel_tolerance)
-            self.assertAlmostEqual(detection_list[0].bbox.size_y,
-                                   expected_detections[0]['height'],
-                                   None, 'Received incorrect height', pixel_tolerance)
-            self.assertAlmostEqual(
-                detection_list[0].bbox.center.position.x,
-                expected_detections[0]['center']['x'],
-                None, 'Received incorrect center', pixel_tolerance)
-            self.assertAlmostEqual(
-                detection_list[0].bbox.center.position.y,
-                expected_detections[0]['center']['y'],
-                None, 'Received incorrect center', pixel_tolerance)
         finally:
             self.node.destroy_subscription(detectnet_detections)
             self.node.destroy_publisher(image_pub)

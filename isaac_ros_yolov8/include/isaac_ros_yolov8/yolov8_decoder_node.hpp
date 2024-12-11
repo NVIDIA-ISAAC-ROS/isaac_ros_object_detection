@@ -59,6 +59,7 @@ private:
   // YOLOv8 Decoder Parameters
   double confidence_threshold_{};
   double nms_threshold_{};
+  int64_t num_classes_{};
 };
 
 }  // namespace yolov8

@@ -18,15 +18,19 @@
 #ifndef NVIDIA_ISAAC_ROS_EXTENSIONS_DETECTNET_DECODER_HPP_
 #define NVIDIA_ISAAC_ROS_EXTENSIONS_DETECTNET_DECODER_HPP_
 
+#include <string>
+#include <vector>
+
+#include "./detection2_d_array_message.hpp"
+#include "deepstream_utils/nvdsinferutils/dbscan/nvdsinfer_dbscan.hpp"
+
 #include "gxf/core/entity.hpp"
 #include "gxf/core/gxf.h"
 #include "gxf/core/parameter.hpp"
-#include "gxf/std/codelet.hpp"
 #include "gxf/core/parameter_parser_std.hpp"
+#include "gxf/std/codelet.hpp"
 #include "gxf/std/receiver.hpp"
 #include "gxf/std/transmitter.hpp"
-#include "detection2_d_array_message.hpp"
-#include "deepstream_utils/nvdsinferutils/dbscan/nvdsinfer_dbscan.hpp"
 
 
 namespace nvidia

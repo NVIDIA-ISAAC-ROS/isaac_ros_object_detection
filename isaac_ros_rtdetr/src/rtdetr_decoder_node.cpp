@@ -75,7 +75,7 @@ void RtDetrDecoderNode::InputCallback(
   const nvidia::isaac_ros::nitros::NitrosTensorListView & msg)
 {
   // Bring labels, boxes, and scores back to CPU
-  auto labels = TensorToVector<int32_t>(msg, labels_tensor_name_, stream_);
+  auto labels = TensorToVector<int64_t>(msg, labels_tensor_name_, stream_);
   auto boxes = TensorToVector<float>(msg, boxes_tensor_name_, stream_);
   auto scores = TensorToVector<float>(msg, scores_tensor_name_, stream_);
   cudaStreamSynchronize(stream_);
