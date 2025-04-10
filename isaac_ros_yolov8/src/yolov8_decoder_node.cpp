@@ -138,12 +138,14 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
 
     detection.header.stamp.sec = msg.GetTimestampSeconds();
     detection.header.stamp.nanosec = msg.GetTimestampNanoseconds();
+    detection.header.frame_id=msg.GetFrameId()+ std::string("/resize");
 
     final_detections_arr.detections.push_back(detection);
   }
 
   final_detections_arr.header.stamp.sec = msg.GetTimestampSeconds();
   final_detections_arr.header.stamp.nanosec = msg.GetTimestampNanoseconds();
+  final_detections_arr.header.frame_id=msg.GetFrameId()+ std::string("/resize");
   pub_->publish(final_detections_arr);
 }
 
