@@ -60,6 +60,7 @@ private:
   double confidence_threshold_{};
   double nms_threshold_{};
   int64_t num_classes_{};
+  int64_t out_dim_{};
 };
 
 }  // namespace yolov8

@@ -55,7 +55,8 @@ YoloV8DecoderNode::YoloV8DecoderNode(const rclcpp::NodeOptions options)
   tensor_name_{declare_parameter<std::string>("tensor_name", "output_tensor")},
   confidence_threshold_{declare_parameter<double>("confidence_threshold", 0.25)},
   nms_threshold_{declare_parameter<double>("nms_threshold", 0.45)},
-  num_classes_{declare_parameter<int64_t>("num_classes", 80)}
+  num_classes_{declare_parameter<int64_t>("num_classes", 80)},
+  out_dim_{declare_parameter<int64_t>("out_dim", 8400)}
 {}
 
 YoloV8DecoderNode::~YoloV8DecoderNode() = default;
@@ -74,14 +75,13 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
   std::vector<int> classes;
 
   //  Output dimensions = [1, 84, 8400]
-  int out_dim = 8400;
   float * results_data = reinterpret_cast<float *>(results_vector.data());
 
-  for (int i = 0; i < out_dim; i++) {
+  for (int i = 0; i < out_dim_; i++) {
     float x = *(results_data + i);
-    float y = *(results_data + (out_dim * 1) + i);
-    float w = *(results_data + (out_dim * 2) + i);
-    float h = *(results_data + (out_dim * 3) + i);
+    float y = *(results_data + (out_dim_ * 1) + i);
+    float w = *(results_data + (out_dim_ * 2) + i);
+    float h = *(results_data + (out_dim_ * 3) + i);
 
     float x1 = (x - (0.5 * w));
     float y1 = (y - (0.5 * h));
@@ -90,7 +90,7 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
 
     std::vector<float> conf;
     for (int j = 0; j < num_classes_; j++) {
-      conf.push_back(*(results_data + (out_dim * (4 + j)) + i));
+      conf.push_back(*(results_data + (out_dim_ * (4 + j)) + i));
     }
 
     std::vector<float>::iterator ind_max_conf;
