@@ -23,6 +23,8 @@
 
 #include "rclcpp/rclcpp.hpp"
 
+
+#include "isaac_ros_common/qos.hpp"
 #include "isaac_ros_managed_nitros/managed_nitros_publisher.hpp"
 #include "isaac_ros_managed_nitros/managed_nitros_subscriber.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_view.hpp"
@@ -44,6 +46,10 @@ public:
 
 private:
   void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView & msg);
+
+  // QOS settings
+  rclcpp::QoS input_qos_;
+  rclcpp::QoS output_qos_;
 
   // Subscription to input NitrosTensorList messages
   std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<

@@ -1,0 +1,15 @@
+# Service hosted by the Grounding DINO decoder. Called by the Grounding DINO preprocessor
+# to pass the new class IDs and positive map tensors to the decoder node on prompt update.
+
+# Request
+# List of class ids generated from the text prompt
+string[] class_ids
+
+# Positive map tensor for matching output bounding boxes to 
+# corresponding class IDs
+isaac_ros_tensor_list_interfaces/Tensor pos_maps
+
+---
+# Response
+# Indicates if data has successfully been passed to the decoder
+bool success

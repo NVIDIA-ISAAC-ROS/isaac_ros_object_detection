@@ -1,0 +1,8 @@
+# Request
+# Natural language description of objects to detect.
+# Separate classes should be separated by periods (e.g. "a person. a car.")
+string prompt
+---
+# Response
+# Indicates if the prompt has successfully been set
+bool success

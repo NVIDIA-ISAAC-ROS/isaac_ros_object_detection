@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_view.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
-
+#include "isaac_ros_common/cuda_stream.hpp"
 
 #include <opencv4/opencv2/opencv.hpp>
 #include <opencv4/opencv2/dnn.hpp>
@@ -56,7 +56,12 @@ YoloV8DecoderNode::YoloV8DecoderNode(const rclcpp::NodeOptions options)
   confidence_threshold_{declare_parameter<double>("confidence_threshold", 0.25)},
   nms_threshold_{declare_parameter<double>("nms_threshold", 0.45)},
   num_classes_{declare_parameter<int64_t>("num_classes", 80)}
-{}
+{
+  CHECK_CUDA_ERROR(
+    ::nvidia::isaac_ros::common::initNamedCudaStream(
+      cuda_stream_, "isaac_ros_yolov8_decoder_node"),
+    "Error initializing CUDA stream");
+}
 
 YoloV8DecoderNode::~YoloV8DecoderNode() = default;
 
@@ -66,8 +71,16 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
   size_t buffer_size{tensor.GetTensorSize()};
   std::vector<float> results_vector{};
   results_vector.resize(buffer_size);
-  cudaMemcpy(results_vector.data(), tensor.GetBuffer(), buffer_size, cudaMemcpyDefault);
-
+  auto cuda_result = cudaMemcpyAsync(
+    results_vector.data(), tensor.GetBuffer(), buffer_size,
+    cudaMemcpyDefault, cuda_stream_);
+  if (cuda_result != cudaSuccess) {
+    throw std::runtime_error("Failed to copy results from CUDA buffer");
+  }
+  cuda_result = cudaStreamSynchronize(cuda_stream_);
+  if (cuda_result != cudaSuccess) {
+    throw std::runtime_error("Failed to synchronize CUDA stream");
+  }
   std::vector<cv::Rect> bboxes;
   std::vector<float> scores;
   std::vector<int> indices;

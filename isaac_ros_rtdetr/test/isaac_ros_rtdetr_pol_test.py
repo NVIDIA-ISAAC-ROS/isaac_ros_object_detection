@@ -41,10 +41,10 @@ import torch
 from vision_msgs.msg import Detection2DArray
 
 
-MODEL_ONNX_PATH = '/tmp/model.onnx'
+MODEL_ONNX_PATH = '/tmp/rtdetr_model.onnx'
 MODEL_GENERATION_TIMEOUT_SEC = 300
 INIT_WAIT_SEC = 10
-MODEL_PLAN_PATH = '/tmp/model.plan'
+MODEL_PLAN_PATH = '/tmp/rtdetr_model.plan'
 
 
 @pytest.mark.rostest
@@ -176,7 +176,7 @@ def generate_test_description():
             'output_binding_names': ['labels', 'boxes', 'scores'],
             'output_tensor_names': ['labels', 'boxes', 'scores'],
             'verbose': False,
-            'force_engine_update': False
+            'force_engine_update': True
         }]
     )
 

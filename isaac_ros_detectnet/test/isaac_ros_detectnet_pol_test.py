@@ -51,8 +51,22 @@ _TEST_CASE_NAMESPACE = 'detectnet_node_test'
 @pytest.mark.rostest
 def generate_test_description():
     """Generate launch description for testing relevant nodes."""
-    launch_dir_path = os.path.dirname(os.path.realpath(__file__))
-    model_dir_path = launch_dir_path + '/dummy_model'
+    if os.environ.get('USE_BAZEL_RUNFILES_PATH', '0') == '1':
+        from python.runfiles import Runfiles
+        r = Runfiles.Create()
+        model_dir_path = r.Rlocation('/'.join([
+            '_main',
+            'ros_ws',
+            'src',
+            'isaac_ros_object_detection',
+            'isaac_ros_detectnet',
+            'test',
+            'dummy_model',
+        ]))
+    else:
+        launch_dir_path = os.path.dirname(os.path.realpath(__file__))
+        model_dir_path = launch_dir_path + '/dummy_model'
+
     model_name = 'detectnet'
     model_version = 1
     onnx_path = f'{model_dir_path}/{model_name}/{model_version}/model.onnx'
@@ -85,7 +99,20 @@ def generate_test_description():
         f'--saveEngine={engine_file_path}',
         '--fp16',
     ]
-    trtexec_executable = '/usr/src/tensorrt/bin/trtexec'
+
+    if os.environ.get('USE_BAZEL_RUNFILES_PATH', '0') == '1':
+        trtexec_executable = r.Rlocation(
+            '/'.join([
+                '_repo_rules2+tensorrt_x86_64_1030',
+                'usr',
+                'src',
+                'tensorrt',
+                'bin',
+                'trtexec',
+            ])
+        )
+    else:
+        trtexec_executable = '/usr/src/tensorrt/bin/trtexec'
     print('Running command:\n' +
           ' '.join([trtexec_executable] + trtexec_args))
     start_time = time.time()

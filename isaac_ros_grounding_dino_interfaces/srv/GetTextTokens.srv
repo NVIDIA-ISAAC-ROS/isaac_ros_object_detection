@@ -1,0 +1,12 @@
+# Request
+# Natural language description of objects to detect.
+# Separate classes should be separated by periods (e.g. "a person. a car.")
+string prompt
+---
+# Response
+# All tensors including tokenized text and positional embeddings.
+isaac_ros_tensor_list_interfaces/TensorList text_tensors
+isaac_ros_tensor_list_interfaces/Tensor pos_maps
+
+# Resulting list of class IDs
+string[] class_ids

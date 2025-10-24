@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_builder.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_view.hpp"
 
+#include "isaac_ros_common/cuda_stream.hpp"
+
 namespace nvidia
 {
 namespace isaac_ros
@@ -32,18 +34,23 @@ namespace rtdetr
 
 RtDetrPreprocessorNode::RtDetrPreprocessorNode(const rclcpp::NodeOptions options)
 : rclcpp::Node("rtdetr_preprocessor_node", options),
+  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
+  input_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos")},
+  output_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos")},
   nitros_sub_{std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
         nvidia::isaac_ros::nitros::NitrosTensorListView>>(
       this,
       "encoded_tensor",
       nvidia::isaac_ros::nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name,
       std::bind(&RtDetrPreprocessorNode::InputCallback, this,
-      std::placeholders::_1))},
+      std::placeholders::_1),
+      nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, input_qos_)},
   nitros_pub_{std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosPublisher<
         nvidia::isaac_ros::nitros::NitrosTensorList>>(
       this,
       "tensor_pub",
-      nvidia::isaac_ros::nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name)},
+      nvidia::isaac_ros::nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name,
+      nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, output_qos_)},
   input_image_tensor_name_{declare_parameter<std::string>(
       "input_image_tensor_name",
       "input_tensor")},
@@ -54,7 +61,10 @@ RtDetrPreprocessorNode::RtDetrPreprocessorNode(const rclcpp::NodeOptions options
   image_height_{declare_parameter<int64_t>("image_height", 480)},
   image_width_{declare_parameter<int64_t>("image_width", 640)}
 {
-  cudaStreamCreate(&stream_);
+  CHECK_CUDA_ERROR(
+    ::nvidia::isaac_ros::common::initNamedCudaStream(
+      stream_, "isaac_ros_rtdetr_preprocessor_node"),
+    "Error initializing CUDA stream");
 }
 
 RtDetrPreprocessorNode::~RtDetrPreprocessorNode()

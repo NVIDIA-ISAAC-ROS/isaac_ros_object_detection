@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <!--
-SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_rtdetr</name>
-  <version>3.2.5</version>
+  <version>4.0.0</version>
   <description>RT-DETR model processing</description>
 
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
@@ -38,8 +38,10 @@ SPDX-License-Identifier: Apache-2.0
   <depend>isaac_ros_nitros_tensor_list_type</depend>
   <depend>isaac_ros_managed_nitros</depend>
   <depend>isaac_ros_tensor_list_interfaces</depend>
+  <depend>isaac_ros_rtdetr_models_install</depend>
 
   <build_depend>isaac_ros_common</build_depend>
+  <build_depend>ament_index_cpp</build_depend>
 
   <exec_depend>isaac_ros_dnn_image_encoder</exec_depend>
   <exec_depend>isaac_ros_image_proc</exec_depend>

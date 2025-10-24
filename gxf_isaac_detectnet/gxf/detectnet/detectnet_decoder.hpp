@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,22 +32,22 @@
 #include "gxf/std/receiver.hpp"
 #include "gxf/std/transmitter.hpp"
 
+#include "gxf/cuda/cuda_stream.hpp"
+#include "gxf/cuda/cuda_stream_pool.hpp"
 
-namespace nvidia
-{
-namespace isaac_ros
-{
+
+namespace nvidia {
+namespace isaac_ros {
 
 // GXF codelet that decodes detections from a tensor and converts it to a detections_2d_array
-class DetectnetDecoder : public gxf::Codelet
-{
-public:
+class DetectnetDecoder : public gxf::Codelet {
+ public:
   gxf_result_t registerInterface(gxf::Registrar * registrar) noexcept override;
   gxf_result_t start() noexcept override;
   gxf_result_t tick() noexcept override;
   gxf_result_t stop() noexcept override {return GXF_SUCCESS;}
 
-private:
+ private:
   gxf::Parameter<gxf::Handle<gxf::Receiver>> tensorlist_receiver_;
   gxf::Parameter<gxf::Handle<gxf::Transmitter>> detections_transmitter_;
 
@@ -65,6 +65,11 @@ private:
   gxf::Parameter<int> dbscan_clustering_algorithm_;
   gxf::Parameter<double> bounding_box_scale_;
   gxf::Parameter<double> bounding_box_offset_;
+  gxf::Parameter<gxf::Handle<gxf::CudaStreamPool>> cuda_stream_pool_;
+
+  // CUDA stream variables
+  gxf::Handle<gxf::CudaStream> cuda_stream_handle_;
+  cudaStream_t cuda_stream_ = 0;
 
   // tuning parameters data structure dbscan library
   NvDsInferDBScanClusteringParams params_;
