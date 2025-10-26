@@ -21,10 +21,11 @@
 # inside the Docker container
 
 # default arguments
-MODEL_LINK="https://api.ngc.nvidia.com/v2/models/nvidia/tao/peoplenet/versions/deployable_quantized_onnx_v2.6.3/zip"
+MODEL_LINK="https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/peoplenet/deployable_quantized_onnx_v2.6.3/files?redirect=true&path=resnet34_peoplenet.onnx"
 MODEL_FILE_NAME="resnet34_peoplenet.onnx"
 HEIGHT="544"
 WIDTH="960"
+LABELS_LINK="https://api.ngc.nvidia.com/v2/models/org/nvidia/team/tao/peoplenet/deployable_quantized_onnx_v2.6.3/files?redirect=true&path=labels.txt"
 CONFIG_FILE="peoplenet_config.pbtxt"
 PRECISION="int8"
 MAX_BATCH_SIZE="16"
@@ -34,6 +35,7 @@ function print_parameters() {
   echo "***************************"
   echo using parameters:
   echo MODEL_LINK : $MODEL_LINK
+  echo LABELS_LINK : $LABELS_LINK
   echo MAX_BATCH_SIZE : $MAX_BATCH_SIZE
   echo HEIGHT : $HEIGHT
   echo WIDTH : $WIDTH
@@ -63,9 +65,9 @@ function check_labels_files() {
 extract_model_name() {
     url="$1"
     # Extract the three-word chain after "models/"
-    three_word_chain=$(echo $url | grep -oP 'models/\K([^/]+)(/[^/]+){2}')
+    five_word_chain=$(echo $url | grep -oP 'models/\K([^/]+)(/[^/]+){4}')
     # Extract the last word
-    last_word=$(echo $three_word_chain | grep -oP '[^/]+$')
+    last_word=$(echo $five_word_chain | grep -oP '[^/]+$')
     echo $last_word
 }
 
@@ -81,10 +83,10 @@ function setup_model() {
   cd ${OUTPUT_PATH}/1
   echo Downloading .onnx file from $MODEL_LINK
   echo From $MODEL_LINK
-  wget --content-disposition $MODEL_LINK -O model.zip
-  echo Unziping network model file .onnx
-  unzip -o model.zip
+  wget --content-disposition $MODEL_LINK -O resnet34_peoplenet.onnx
   echo Checking if labels.txt exists
+  echo From $LABELS_LINK
+  wget --content-disposition $LABELS_LINK -O labels.txt
   check_labels_files
   echo Converting .onnx to a TensorRT Engine Plan
 

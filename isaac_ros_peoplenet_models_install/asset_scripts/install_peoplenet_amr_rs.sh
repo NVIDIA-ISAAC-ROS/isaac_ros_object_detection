@@ -13,19 +13,25 @@
 
 set -e
 
+if [ -n "$TENSORRT_COMMAND" ]; then
+  # If a custom tensorrt is used, ensure it's lib directory is added to the LD_LIBRARY_PATH
+  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$(readlink -f $(dirname ${TENSORRT_COMMAND})/../../../lib/x86_64-linux-gnu/)"
+fi
+if [ -n "$MODEL_PATH" ]; then
+  ISAAC_ROS_WS="$(readlink -f $(dirname ${MODEL_PATH})/../../../..)"
+fi
 ASSET_NAME="rsu_rs_480_640_mask"
 EULA_URL="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/models/optimized_peoplenet_amr"
 ASSET_DIR="${ISAAC_ROS_WS}/isaac_ros_assets/models/peoplenet/${ASSET_NAME}"
 ASSET_INSTALL_PATHS="${ASSET_DIR}/1/model.plan"
 MODEL_URL="https://api.ngc.nvidia.com/v2/models/org/nvidia/team/isaac/optimized_peoplenet_amr/v1_1_optimized_mask/files?redirect=true&path=rsu_rs_480_640_mask.onnx"
-source "isaac_ros_asset_eula.sh"
+source "${ISAAC_ROS_ASSET_EULA_SH:-isaac_ros_asset_eula.sh}"
 
 mkdir -p $(dirname "$ASSET_INSTALL_PATHS")
 
-wget "${MODEL_URL}" -O "${ASSET_DIR}/model.onnx"
-
+wget -nv -T 30 -t 1 "${MODEL_URL}" -O "${ASSET_DIR}/model.onnx"
 echo "Converting PeopleNet AMR onnx file to plan file."
-/usr/src/tensorrt/bin/trtexec \
+${TENSORRT_COMMAND:-/usr/src/tensorrt/bin/trtexec} \
     --maxShapes="preprocess/input_1:0":1x480x640x3 \
     --minShapes="preprocess/input_1:0":1x480x640x3 \
     --optShapes="preprocess/input_1:0":1x480x640x3 \
@@ -62,4 +68,3 @@ EOF
 )
 
 echo "$config_file_text" >${ASSET_DIR}/config.pbtxt
-

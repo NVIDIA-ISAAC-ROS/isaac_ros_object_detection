@@ -2,25 +2,26 @@
 
 NVIDIA-accelerated, deep learned model support for object detection including DetectNet.
 
-<div align="center"><img alt="original image" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/main/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_example.png/" width="300px"/>
-<img alt="bounding box predictions using DetectNet" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/main/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_example_bbox.png/" width="300px"/></div>
+<div align="center"><img alt="original image" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_example.png/" width="300px"/>
+<img alt="bounding box predictions using DetectNet" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_example_bbox.png/" width="300px"/></div>
 
 ## Overview
 
 Isaac ROS Object Detection contains ROS 2 packages to perform object
 detection.
-`isaac_ros_rtdetr`, `isaac_ros_detectnet`, and `isaac_ros_yolov8` each provide a method for spatial
+`isaac_ros_rtdetr`, `isaac_ros_detectnet`, `isaac_ros_yolov8`, and `isaac_ros_grounding_dino` each provide a method for spatial
 classification using bounding boxes with an input image. Classification
 is performed by a GPU-accelerated model of the appropriate architecture:
 
 - `isaac_ros_rtdetr`: [RT-DETR models](https://nvidia-isaac-ros.github.io/concepts/object_detection/rtdetr/index.html)
 - `isaac_ros_detectnet`: [DetectNet models](https://nvidia-isaac-ros.github.io/concepts/object_detection/detectnet/index.html)
 - `isaac_ros_yolov8`: [YOLOv8 models](https://nvidia-isaac-ros.github.io/concepts/object_detection/yolov8/index.html)
+- `isaac_ros_grounding_dino`: [Grounding DINO models](https://nvidia-isaac-ros.github.io/concepts/object_detection/grounding_dino/index.html)
 
 The output prediction can be used by perception functions to
 understand the presence and spatial location of an object in an image.
 
-<div align="center"><a class="reference internal image-reference" href="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/main/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_nodegraph.png/"><img alt="image" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/main/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_nodegraph.png/" width="800px"/></a></div>
+<div align="center"><a class="reference internal image-reference" href="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_nodegraph.png/"><img alt="image" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_nodegraph.png/" width="800px"/></a></div>
 
 Each Isaac ROS Object Detection package is used in a graph of nodes to provide a
 bounding box detection array with object classes from an input image. A
@@ -48,7 +49,7 @@ image, which provides 1K pixels for the person, and fail to detect the
 same person in the downscaled resolution, which only provides 0.25K
 pixels for the person.
 
-<div align="center"><a class="reference internal image-reference" href="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/main/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_example_bboxseg.png/"><img alt="image" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/main/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_example_bboxseg.png/" width="800px"/></a></div>
+<div align="center"><a class="reference internal image-reference" href="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_example_bboxseg.png/"><img alt="image" src="https://media.githubusercontent.com/media/NVIDIA-ISAAC-ROS/.github/release-4.0/resources/isaac_ros_docs/repositories_and_packages/isaac_ros_object_detection/isaac_ros_object_detection_example_bboxseg.png/" width="800px"/></a></div>
 
 Object detection classifies a rectangle of pixels as containing an
 object, whereas image segmentation provides more information and uses
@@ -63,10 +64,11 @@ This package is powered by [NVIDIA Isaac Transport for ROS (NITROS)](https://dev
 
 ## Performance
 
-| Sample Graph<br/><br/>                                                                                                                                                                                             | Input Size<br/><br/>     | AGX Orin<br/><br/>                                                                                                                                                 | Orin NX<br/><br/>                                                                                                                                                 | Orin Nano Super 8GB<br/><br/>                                                                                                                                       | x86_64 w/ RTX 4090<br/><br/>                                                                                                                                      |
-|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [RT-DETR Object Detection Graph](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/benchmarks/isaac_ros_rtdetr_benchmark/scripts/isaac_ros_rtdetr_graph.py)<br/><br/><br/>SyntheticaDETR<br/><br/> | 720p<br/><br/><br/><br/> | [56.5 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_rtdetr_graph-agx_orin.json)<br/><br/><br/>29 ms @ 30Hz<br/><br/>    | [33.3 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_rtdetr_graph-orin_nx.json)<br/><br/><br/>40 ms @ 30Hz<br/><br/>    | [37.3 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_rtdetr_graph-orin_nano.json)<br/><br/><br/>37 ms @ 30Hz<br/><br/>    | [450 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_rtdetr_graph-x86-4090.json)<br/><br/><br/>5.5 ms @ 30Hz<br/><br/>   |
-| [DetectNet Object Detection Graph](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/benchmarks/isaac_ros_detectnet_benchmark/scripts/isaac_ros_detectnet_graph.py)<br/><br/><br/><br/>            | 544p<br/><br/><br/><br/> | [55.4 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_detectnet_graph-agx_orin.json)<br/><br/><br/>37 ms @ 30Hz<br/><br/> | [25.7 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_detectnet_graph-orin_nx.json)<br/><br/><br/>45 ms @ 30Hz<br/><br/> | [33.0 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_detectnet_graph-orin_nano.json)<br/><br/><br/>43 ms @ 30Hz<br/><br/> | [262 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/main/results/isaac_ros_detectnet_graph-x86-4090.json)<br/><br/><br/>11 ms @ 30Hz<br/><br/> |
+| Sample Graph<br/><br/>                                                                                                                                                                                                    | Input Size<br/><br/>   | AGX Thor<br/><br/>                                                                                                                                                             | x86_64 w/ RTX 5090<br/><br/>                                                                                                                                                  |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [DetectNet Object Detection Graph](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/benchmarks/isaac_ros_detectnet_benchmark/scripts/isaac_ros_detectnet_graph.py)<br/><br/>                      | 544p<br/><br/>         | [143 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_detectnet_graph-agx_thor.json)<br/><br/><br/>27 ms @ 30Hz<br/><br/>       | [242 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_detectnet_graph-x86-5090.json)<br/><br/><br/>17 ms @ 30Hz<br/><br/>      |
+| [Grounding DINO Object Detection Graph](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/benchmarks/isaac_ros_grounding_dino_benchmark/scripts/isaac_ros_grounding_dino_graph.py)<br/><br/>       | 544p<br/><br/>         | [22.9 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_grounding_dino_graph-agx_thor.json)<br/><br/><br/>70 ms @ 30Hz<br/><br/> | [144 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_grounding_dino_graph-x86-5090.json)<br/><br/><br/>15 ms @ 30Hz<br/><br/> |
+| [RT-DETR Object Detection Graph](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/benchmarks/isaac_ros_rtdetr_benchmark/scripts/isaac_ros_rtdetr_graph.py)<br/><br/><br/>SyntheticaDETR<br/><br/> | 720p<br/><br/>         | [219 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_rtdetr_graph-agx_thor.json)<br/><br/><br/>23 ms @ 30Hz<br/><br/>          | [457 fps](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark/blob/release-4.0/results/isaac_ros_rtdetr_graph-x86-5090.json)<br/><br/><br/>8.0 ms @ 30Hz<br/><br/>        |
 
 ---
 
@@ -84,6 +86,10 @@ Please visit the [Isaac ROS Documentation](https://nvidia-isaac-ros.github.io/re
   * [ROS 2 Graph Configuration](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_detectnet/index.html#ros-2-graph-configuration)
   * [Troubleshooting](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_detectnet/index.html#troubleshooting)
   * [API](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_detectnet/index.html#api)
+* [`isaac_ros_grounding_dino`](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_grounding_dino/index.html)
+  * [Quickstart](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_grounding_dino/index.html#quickstart)
+  * [Troubleshooting](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_grounding_dino/index.html#troubleshooting)
+  * [API](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_grounding_dino/index.html#api)
 * [`isaac_ros_rtdetr`](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_rtdetr/index.html)
   * [Quickstart](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_rtdetr/index.html#quickstart)
   * [Try More Examples](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_object_detection/isaac_ros_rtdetr/index.html#try-more-examples)
@@ -97,4 +103,4 @@ Please visit the [Isaac ROS Documentation](https://nvidia-isaac-ros.github.io/re
 
 ## Latest
 
-Update 2024-12-10: Update to be compatible with JetPack 6.1
+Update 2025-10-24: Added Grounding DINO object detection package

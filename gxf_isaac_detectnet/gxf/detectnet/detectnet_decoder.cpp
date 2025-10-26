@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2022-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <climits>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "./detection2_d_array_message.hpp"
@@ -32,12 +33,9 @@
 #include "gxf/std/timestamp.hpp"
 
 
-namespace nvidia
-{
-namespace isaac_ros
-{
-namespace
-{
+namespace nvidia {
+namespace isaac_ros {
+namespace {
 // constant parameters for DetectNetv2
 constexpr int kTensorHeightIdx = 2;
 constexpr int kTensorWidthIdx = 3;
@@ -55,8 +53,7 @@ NvDsInferObjectDetectionInfo GetNewDetectionInfo(
   float top,
   float width,
   float height,
-  float detectionConfidence)
-{
+  float detectionConfidence) {
   NvDsInferObjectDetectionInfo detection_info;
 
   detection_info.classId = classId;
@@ -73,8 +70,7 @@ void FillMessage(
   Detection2DParts& message_parts,
   const std::vector<NvDsInferObjectDetectionInfo>& detection_info_vector,
   gxf::Handle<nvidia::gxf::Timestamp> tensorlist_timestamp,
-  size_t num_detections, const std::vector<std::string>& label_list)
-{
+  size_t num_detections, const std::vector<std::string>& label_list) {
   for (uint32_t i = 0; i < num_detections; i++) {
     NvDsInferObjectDetectionInfo detection_info = detection_info_vector[i];
     Detection2D temp_detection;
@@ -95,8 +91,7 @@ void FillMessage(
 }  // anonymous namespace
 
 
-gxf_result_t DetectnetDecoder::registerInterface(gxf::Registrar * registrar) noexcept
-{
+gxf_result_t DetectnetDecoder::registerInterface(gxf::Registrar * registrar) noexcept {
   gxf::Expected<void> result;
 
   result &= registrar->parameter(
@@ -174,11 +169,26 @@ gxf_result_t DetectnetDecoder::registerInterface(gxf::Registrar * registrar) noe
     bounding_box_offset_, "bounding_box_offset", "Bounding Box Offset",
     "Bounding box offset for both X and Y dimensions", 0.5);
 
+  result &= registrar->parameter(cuda_stream_pool_, "stream_pool", "Cuda Stream Pool",
+                                 "Instance of gxf::CudaStreamPool to allocate CUDA stream.");
+
   return gxf::ToResultCode(result);
 }
 
-gxf_result_t DetectnetDecoder::start() noexcept
-{
+gxf_result_t DetectnetDecoder::start() noexcept {
+  // Get cuda stream from stream pool
+  auto maybe_stream = cuda_stream_pool_.get()->allocateStream();
+  if (!maybe_stream) { return gxf::ToResultCode(maybe_stream); }
+
+  cuda_stream_handle_ = std::move(maybe_stream.value());
+  if (!cuda_stream_handle_->stream()) {
+    GXF_LOG_ERROR("Allocated stream is not initialized!");
+    return GXF_FAILURE;
+  }
+  if (!cuda_stream_handle_.is_null()) {
+    cuda_stream_ = cuda_stream_handle_->stream().value();
+  }
+
   params_.eps = dbscan_eps_;
   params_.minBoxes = dbscan_min_boxes_ > 0 ? dbscan_min_boxes_ : 0;
   params_.enableATHRFilter = dbscan_enable_athr_filter_;
@@ -186,8 +196,7 @@ gxf_result_t DetectnetDecoder::start() noexcept
   params_.minScore = dbscan_confidence_threshold_;
 
   if (dbscan_clustering_algorithm_ != kDbscanCluster &&
-    dbscan_clustering_algorithm_ != kDbscanClusterHybrid)
-  {
+    dbscan_clustering_algorithm_ != kDbscanClusterHybrid) {
     GXF_LOG_ERROR(
       "Invalid value for dbscan_clustering_algorithm: %i",
       dbscan_clustering_algorithm_.get());
@@ -197,8 +206,7 @@ gxf_result_t DetectnetDecoder::start() noexcept
   return GXF_SUCCESS;
 }
 
-gxf_result_t DetectnetDecoder::tick() noexcept
-{
+gxf_result_t DetectnetDecoder::tick() noexcept {
   gxf::Expected<void> result;
 
   // Receive disparity image and left/right camera info
@@ -266,9 +274,9 @@ gxf_result_t DetectnetDecoder::tick() noexcept
   // TODO(ashwinvk): Do not copy data to host and perform decoding using cuda
   // copy memory to host
   std::unique_ptr<float[]> cov_tensor_arr(new float[cov_tensor->element_count()]);
-  const cudaError_t cuda_error_cov_tensor = cudaMemcpy(
+  const cudaError_t cuda_error_cov_tensor = cudaMemcpyAsync(
     cov_tensor_arr.get(), cov_tensor->pointer(),
-    cov_tensor->size(), cudaMemcpyDeviceToHost);
+    cov_tensor->size(), cudaMemcpyDeviceToHost, cuda_stream_);
   if (cuda_error_cov_tensor != cudaSuccess) {
     GXF_LOG_ERROR("Error while copying kernel: %s", cudaGetErrorString(cuda_error_cov_tensor));
     return GXF_FAILURE;
@@ -276,11 +284,17 @@ gxf_result_t DetectnetDecoder::tick() noexcept
 
   // data in tensor is kFloat32
   std::vector<float> bbox_tensor_arr(bbox_tensor->size() / sizeof(float));
-  const cudaError_t cuda_error_bbox_tensor = cudaMemcpy(
+  const cudaError_t cuda_error_bbox_tensor = cudaMemcpyAsync(
     bbox_tensor_arr.data(), bbox_tensor->pointer(),
-    bbox_tensor->size(), cudaMemcpyDeviceToHost);
+    bbox_tensor->size(), cudaMemcpyDeviceToHost, cuda_stream_);
   if (cuda_error_bbox_tensor != cudaSuccess) {
     GXF_LOG_ERROR("Error while copying kernel: %s", cudaGetErrorString(cuda_error_bbox_tensor));
+    return GXF_FAILURE;
+  }
+
+  auto cuda_result = cudaStreamSynchronize(cuda_stream_);
+  if (cuda_result != cudaSuccess) {
+    GXF_LOG_ERROR("Error while synchronizing kernel: %s", cudaGetErrorString(cuda_result));
     return GXF_FAILURE;
   }
 

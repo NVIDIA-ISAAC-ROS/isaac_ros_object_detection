@@ -43,15 +43,19 @@ std::vector<T> TensorToVector(
 
 RtDetrDecoderNode::RtDetrDecoderNode(const rclcpp::NodeOptions options)
 : rclcpp::Node("rtdetr_decoder_node", options),
+  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
+  input_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos")},
+  output_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos")},
   nitros_sub_{std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
         nvidia::isaac_ros::nitros::NitrosTensorListView>>(
       this,
       "tensor_sub",
       nvidia::isaac_ros::nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name,
       std::bind(&RtDetrDecoderNode::InputCallback, this,
-      std::placeholders::_1))},
+      std::placeholders::_1),
+      nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, input_qos_)},
   pub_{create_publisher<vision_msgs::msg::Detection2DArray>(
-      "detections_output", 10)},
+      "detections_output", output_qos_)},
   labels_tensor_name_{declare_parameter<std::string>(
       "labels_tensor_name",
       "labels")},

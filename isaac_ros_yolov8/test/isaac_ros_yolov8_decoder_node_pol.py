@@ -191,7 +191,7 @@ class IsaacROSYoloV8POLTest(IsaacROSBaseTest):
             camera_info.header = image.header
             camera_info.distortion_model = 'plumb_bob'
 
-            TIMEOUT = 10
+            TIMEOUT = 20
             end_time = time.time() + TIMEOUT
             done = False
             while time.time() < end_time:
