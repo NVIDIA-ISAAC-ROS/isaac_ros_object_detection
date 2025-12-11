@@ -64,6 +64,7 @@ private:
   std::string output_size_tensor_name_{};
   int64_t image_height_{};
   int64_t image_width_{};
+  bool use_max_dim_for_orig_size_{};
   cudaStream_t stream_;
 };
 
