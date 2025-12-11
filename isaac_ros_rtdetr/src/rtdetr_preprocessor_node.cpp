@@ -17,6 +17,8 @@
 
 #include "isaac_ros_rtdetr/rtdetr_preprocessor_node.hpp"
 
+#include <algorithm>
+
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_builder.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_builder.hpp"
@@ -59,7 +61,8 @@ RtDetrPreprocessorNode::RtDetrPreprocessorNode(const rclcpp::NodeOptions options
       "output_size_tensor_name",
       "orig_target_sizes")},
   image_height_{declare_parameter<int64_t>("image_height", 480)},
-  image_width_{declare_parameter<int64_t>("image_width", 640)}
+  image_width_{declare_parameter<int64_t>("image_width", 640)},
+  use_max_dim_for_orig_size_{declare_parameter<bool>("use_max_dim_for_orig_size", true)}
 {
   CHECK_CUDA_ERROR(
     ::nvidia::isaac_ros::common::initNamedCudaStream(
@@ -89,9 +92,12 @@ void RtDetrPreprocessorNode::InputCallback(
     output_image_buffer, input_image_tensor.GetBuffer(),
     input_image_tensor.GetTensorSize(), cudaMemcpyDefault, stream_);
 
-  int64_t image_size = std::max(image_height_, image_width_);
+  const int64_t orig_width = use_max_dim_for_orig_size_ ?
+    std::max(image_height_, image_width_) : image_width_;
+  const int64_t orig_height = use_max_dim_for_orig_size_ ?
+    std::max(image_height_, image_width_) : image_height_;
 
-  int64_t output_size[2]{image_size, image_size};
+  int64_t output_size[2]{orig_width, orig_height};
   void * output_size_buffer;
   cudaMallocAsync(&output_size_buffer, sizeof(output_size), stream_);
   cudaMemcpyAsync(output_size_buffer, output_size, sizeof(output_size), cudaMemcpyDefault, stream_);
