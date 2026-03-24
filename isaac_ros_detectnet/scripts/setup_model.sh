@@ -44,7 +44,6 @@ CONFIG_FILE="peoplenet_config.pbtxt"
 PRECISION="int8"
 MAX_BATCH_SIZE="16"
 
-source "${ISAAC_ROS_ASSET_EULA_SH:-isaac_ros_asset_eula.sh}"
 
 function print_parameters() {
   echo
@@ -150,61 +149,46 @@ function setup_model() {
   echo Completed quickstart setup
 }
 
-function show_help() {
-  IFS=',' read -ra HELP_OPTIONS <<< "${LONGOPTS}"
-  echo "Valid options: "
-  for opt in "${HELP_OPTIONS[@]}"; do
-    REQUIRED_ARG=""
-    if [[ "$opt" == *":" ]]; then
-      REQUIRED_ARG="${opt//:/}"
-    fi
-    echo -e "\t--${opt//:/} ${REQUIRED_ARG^^}"
-  done
-}
-
-# Get command line arguments
-OPTIONS=m:mfn:b:p:ol:h
-LONGOPTS=model-link:,model-file-name:,max-batch-size:,config-file:,precision:,output-layers:,help
-
-PARSED=$(getopt --options=$OPTIONS --longoptions=$LONGOPTS --name "$0" -- "$@")
-eval set -- "$PARSED"
-
-while true; do
+# Parse script-specific args; unknown args (e.g. --show-eula, --no-cache) are
+# collected in PASSTHRU_ARGS and forwarded to the EULA helper via set --.
+PASSTHRU_ARGS=()
+while (( "$#" )); do
     case "$1" in
-        -m|--model-link)
-          MODEL_LINK="$2"
-          shift 2
-          ;;
-        -mfn|--model-file-name)
-          MODEL_FILE_NAME="$2"
-          shift 2
-          ;;
-        -c|--config-file)
-          CONFIG_FILE="$2"
-          shift 2
-          ;;
-        -p|--precision)
-          PRECISION="$2"
-          shift 2
-          ;;
-        -b|--max-batch-size)
-          MAX_BATCH_SIZE="$2"
-          shift 2
-          ;;
         -h|--help)
-          show_help
+          echo "Usage: $0 [--show-eula|--print-install-paths|--no-cache]"
+          echo "  --model-link MODEL_LINK         Override model download URL"
+          echo "  --model-file-name MODEL_FILE    Override model file name"
+          echo "  --config-file CONFIG_FILE       Override Triton config file (default: peoplenet_config.pbtxt)"
+          echo "  --precision PRECISION           Override precision (default: int8)"
+          echo "  --max-batch-size BATCH_SIZE     Override max batch size (default: 16)"
           exit 0
           ;;
-        --)
-          shift
-          break
+        -m|--model-link)
+          MODEL_LINK="$2"; shift 2
+          ;;
+        --model-file-name)
+          MODEL_FILE_NAME="$2"; shift 2
+          ;;
+        -c|--config-file)
+          CONFIG_FILE="$2"; shift 2
+          ;;
+        -p|--precision)
+          PRECISION="$2"; shift 2
+          ;;
+        -b|--max-batch-size)
+          MAX_BATCH_SIZE="$2"; shift 2
           ;;
         *)
-          echo "Unknown argument"
-          break
+          # Forward unrecognized args (--show-eula, --eula, --print-install-paths,
+          # --no-cache) to the EULA helper script.
+          PASSTHRU_ARGS+=("$1"); shift
           ;;
     esac
 done
+
+# Restore forwarded args for the EULA helper to consume.
+set -- "${PASSTHRU_ARGS[@]}"
+source "${ISAAC_ROS_ASSET_EULA_SH:-isaac_ros_asset_eula.sh}"
 
 # Print script parameters being used
 print_parameters

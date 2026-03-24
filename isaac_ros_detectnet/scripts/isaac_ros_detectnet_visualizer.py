@@ -21,6 +21,8 @@
 # then renders the output boxes on top of the image and publishes
 # the result as an image message
 
+import math
+
 import cv2
 import cv_bridge
 import message_filters
@@ -64,10 +66,16 @@ class DetectNetVisualizer(Node):
             width = detection.bbox.size_x
             height = detection.bbox.size_y
 
-            min_pt = (round(center_x - (width / 2.0)),
-                      round(center_y - (height / 2.0)))
-            max_pt = (round(center_x + (width / 2.0)),
-                      round(center_y + (height / 2.0)))
+            min_x = float(center_x - (width / 2.0))
+            min_y = float(center_y - (height / 2.0))
+            max_x = float(center_x + (width / 2.0))
+            max_y = float(center_y + (height / 2.0))
+
+            if not all(math.isfinite(v) for v in (min_x, min_y, max_x, max_y)):
+                continue
+
+            min_pt = (int(round(min_x)), int(round(min_y)))
+            max_pt = (int(round(max_x)), int(round(max_y)))
 
             cv2.rectangle(cv2_img, min_pt, max_pt,
                           self.color, self.bbox_thickness)
