@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_grounding_dino</name>
-  <version>4.3.0</version>
+  <version>4.4.0</version>
   <description>Grounding DINO model processing</description>
 
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
@@ -47,6 +47,7 @@ SPDX-License-Identifier: Apache-2.0
 
   <build_depend>isaac_ros_common</build_depend>
 
+  <exec_depend>cv_bridge</exec_depend>
   <exec_depend>isaac_ros_dnn_image_encoder</exec_depend>
   <exec_depend>isaac_ros_image_proc</exec_depend>
   <exec_depend>isaac_ros_tensor_rt</exec_depend>
