@@ -27,9 +27,9 @@
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
 
-#include <opencv4/opencv2/opencv.hpp>
-#include <opencv4/opencv2/dnn.hpp>
-#include <opencv4/opencv2/dnn/dnn.hpp>
+#include <opencv2/opencv.hpp>
+#include <opencv2/dnn.hpp>
+#include <opencv2/dnn/dnn.hpp>
 
 #include "vision_msgs/msg/detection2_d_array.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
