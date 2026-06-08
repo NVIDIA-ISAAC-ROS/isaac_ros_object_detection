@@ -20,8 +20,10 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rcl_interfaces/msg/set_parameters_result.hpp"
 
 #include "isaac_ros_common/qos.hpp"
 #include "isaac_ros_managed_nitros/managed_nitros_subscriber.hpp"
@@ -45,6 +47,9 @@ public:
 private:
   void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView & msg);
 
+  rcl_interfaces::msg::SetParametersResult ParametersCallback(
+    const std::vector<rclcpp::Parameter> & parameters);
+
   // QOS settings
   rclcpp::QoS input_qos_;
   rclcpp::QoS output_qos_;
@@ -60,6 +65,7 @@ private:
   std::string boxes_tensor_name_{};
   std::string scores_tensor_name_{};
   double confidence_threshold_{};
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
   cudaStream_t stream_;
 };
 

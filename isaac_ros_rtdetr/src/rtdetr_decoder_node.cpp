@@ -68,11 +68,32 @@ RtDetrDecoderNode::RtDetrDecoderNode(const rclcpp::NodeOptions options)
   confidence_threshold_{declare_parameter<double>("confidence_threshold", 0.9)}
 {
   cudaStreamCreate(&stream_);
+
+  parameter_callback_handle_ = add_on_set_parameters_callback(
+    std::bind(
+      &RtDetrDecoderNode::ParametersCallback,
+      this,
+      std::placeholders::_1));
 }
 
 RtDetrDecoderNode::~RtDetrDecoderNode()
 {
   cudaStreamDestroy(stream_);
+}
+
+rcl_interfaces::msg::SetParametersResult RtDetrDecoderNode::ParametersCallback(
+  const std::vector<rclcpp::Parameter> & parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+
+  for (const auto &parameter : parameters) {
+    if (parameter.get_name() == "confidence_threshold") {
+      confidence_threshold_ = parameter.as_double();
+    }
+  }
+
+  return result;
 }
 
 void RtDetrDecoderNode::InputCallback(
