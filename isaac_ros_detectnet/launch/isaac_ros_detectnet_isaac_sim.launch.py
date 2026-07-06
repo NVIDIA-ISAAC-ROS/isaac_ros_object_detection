@@ -34,7 +34,7 @@ def generate_launch_description():
     config = launch_dir_path + '/../config/params_isaac_sim.yaml'
     isaac_ros_ws_path = os.environ.get('ISAAC_ROS_WS', '')
     model_dir_path = os.path.join(isaac_ros_ws_path,
-                                  'isaac_ros_assets/models')
+                                  'isaac_ros_assets/models/triton')
 
     # Read labels from text file
     labels_file_path = f'{model_dir_path}/peoplenet/1/labels.txt'
@@ -77,6 +77,7 @@ def generate_launch_description():
             'image_input_topic': '/front_stereo_camera/left/image_resize',
             'camera_info_input_topic': '/front_stereo_camera/left/camera_info_resize',
             'tensor_output_topic': '/tensor_pub',
+            'tensor_name': 'input_tensor',
         }.items(),
     )
 

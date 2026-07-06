@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "isaac_ros_common/qos.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_subscriber.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_view.hpp"
+#include "isaac_ros_common/cuda_stream.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
+#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 
 namespace nvidia
 {
@@ -38,29 +38,27 @@ namespace rtdetr
 class RtDetrDecoderNode : public rclcpp::Node
 {
 public:
-  explicit RtDetrDecoderNode(const rclcpp::NodeOptions options = rclcpp::NodeOptions());
+  explicit RtDetrDecoderNode(const rclcpp::NodeOptions & options);
 
   ~RtDetrDecoderNode();
 
 private:
-  void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView & msg);
+  void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorList & msg);
 
   // QOS settings
-  rclcpp::QoS input_qos_;
-  rclcpp::QoS output_qos_;
-
-  // Subscription to input NitrosTensorList messages
-  std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-      nvidia::isaac_ros::nitros::NitrosTensorListView>> nitros_sub_;
-
-  // Publisher for output Detection2DArray messages
-  rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr pub_;
-
+  const int16_t input_queue_size_;
+  const int16_t output_queue_size_;
   std::string labels_tensor_name_{};
   std::string boxes_tensor_name_{};
   std::string scores_tensor_name_{};
   double confidence_threshold_{};
-  cudaStream_t stream_;
+
+  // Subscriber and Publisher for input and output NitrosTensorList messages
+  rclcpp::Subscription<nvidia::isaac_ros::nitros::NitrosTensorList>::SharedPtr nitros_sub_;
+  rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr detections_pub_;
+
+  // CUDA Resources
+  ::nvidia::isaac_ros::common::CudaStreamPtr cuda_stream_;
 };
 
 }  // namespace rtdetr

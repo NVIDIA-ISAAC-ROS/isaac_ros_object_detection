@@ -43,6 +43,10 @@ def generate_launch_description():
             default_value='["input_tensor"]',
             description='A list of tensor names to bound to the specified input binding names'),
         DeclareLaunchArgument(
+            'tensor_name',
+            default_value='input_tensor',
+            description='The name of the output tensor from the DNN image encoder'),
+        DeclareLaunchArgument(
             'input_binding_names',
             default_value='[""]',
             description='A list of input tensor binding names (specified by model)'),
@@ -71,6 +75,7 @@ def generate_launch_description():
     network_image_height = LaunchConfiguration('network_image_height')
     image_mean = LaunchConfiguration('image_mean')
     image_stddev = LaunchConfiguration('image_stddev')
+    tensor_name = LaunchConfiguration('tensor_name')
 
     # TensorRT parameters
     model_file_path = LaunchConfiguration('model_file_path')
@@ -89,7 +94,7 @@ def generate_launch_description():
     encoder_dir = get_package_share_directory('isaac_ros_dnn_image_encoder')
     yolov8_encoder_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            [os.path.join(encoder_dir, 'launch', 'dnn_image_encoder.launch.py')]
+            [os.path.join(encoder_dir, 'launch', 'dnn_image_encoder_nodes.launch.py')]
         ),
         launch_arguments={
             'input_image_width': input_image_width,
@@ -104,6 +109,7 @@ def generate_launch_description():
             'image_input_topic': '/image',
             'camera_info_input_topic': '/camera_info',
             'tensor_output_topic': '/tensor_pub',
+            'tensor_name': tensor_name,
         }.items(),
     )
 

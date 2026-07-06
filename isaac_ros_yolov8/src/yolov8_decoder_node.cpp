@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2023-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2023-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,9 +23,11 @@
 #include <iostream>
 #include <vector>
 
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_view.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
+#include "isaac_ros_common/qos.hpp"
+#include "isaac_ros_nitros/types/cuda_memory_pool.hpp"
+#include "isaac_ros_nitros_tensor_list_type/nitros_tensor.hpp"
+#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/dnn.hpp>
@@ -43,41 +45,69 @@ namespace yolov8
 {
 YoloV8DecoderNode::YoloV8DecoderNode(const rclcpp::NodeOptions options)
 : rclcpp::Node("yolov8_decoder_node", options),
-  nitros_sub_{std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-        nvidia::isaac_ros::nitros::NitrosTensorListView>>(
-      this,
-      "tensor_sub",
-      nvidia::isaac_ros::nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name,
-      std::bind(&YoloV8DecoderNode::InputCallback, this,
-      std::placeholders::_1))},
-  pub_{create_publisher<vision_msgs::msg::Detection2DArray>(
-      "detections_output", 50)},
+  memory_pool_block_size_(declare_parameter<int64_t>("memory_pool_block_size", 1920 * 1200 * 4)),
+  memory_pool_num_blocks_(declare_parameter<int64_t>("memory_pool_num_blocks", 40)),
+  input_queue_size_(declare_parameter<int16_t>("input_queue_size", 10)),
+  output_queue_size_(declare_parameter<int16_t>("output_queue_size", 10)),
   tensor_name_{declare_parameter<std::string>("tensor_name", "output_tensor")},
   confidence_threshold_{declare_parameter<double>("confidence_threshold", 0.25)},
   nms_threshold_{declare_parameter<double>("nms_threshold", 0.45)},
   num_classes_{declare_parameter<int64_t>("num_classes", 80)}
 {
-  CHECK_CUDA_ERROR(
-    ::nvidia::isaac_ros::common::initNamedCudaStream(
-      cuda_stream_, "isaac_ros_yolov8_decoder_node"),
-    "Error initializing CUDA stream");
+  RCLCPP_DEBUG(get_logger(), "[YoloV8DecoderNode] In YoloV8DecoderNode's constructor");
+
+  const rclcpp::QoS input_qos = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "input_qos").keep_last(input_queue_size_);
+  const rclcpp::QoS output_qos = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "output_qos").keep_last(output_queue_size_);
+
+  // Create CUDA resources
+  cuda_stream_ = ::nvidia::isaac_ros::common::createCudaStream("YoloV8DecoderNode");
+
+  // Create subscribers for input and output tensors
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  nitros_sub_ = create_subscription<nvidia::isaac_ros::nitros::NitrosTensorList>(
+    "tensor_sub", input_qos,
+    std::bind(&YoloV8DecoderNode::InputCallback, this, std::placeholders::_1),
+    sub_options);
+  pub_ = create_publisher<vision_msgs::msg::Detection2DArray>(
+    "detections_output", output_qos,
+    pub_options);
+
+  RCLCPP_DEBUG(get_logger(), "[YoloV8DecoderNode] Setup complete");
 }
 
 YoloV8DecoderNode::~YoloV8DecoderNode() = default;
 
-void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView & msg)
+void YoloV8DecoderNode::InputCallback(
+  const nvidia::isaac_ros::nitros::NitrosTensorList::ConstSharedPtr msg
+)
 {
-  auto tensor = msg.GetNamedTensor(tensor_name_);
-  size_t buffer_size{tensor.GetTensorSize()};
+  RCLCPP_DEBUG(get_logger(), "[YoloV8DecoderNode] Received input tensor list");
+  std::shared_ptr<nvidia::isaac_ros::nitros::NitrosTensor> input_tensor =
+    msg->get_tensor_by_name(tensor_name_);
+  if (input_tensor == nullptr) {
+    RCLCPP_ERROR(get_logger(), "[YoloV8DecoderNode] Input tensor %s not found",
+      tensor_name_.c_str());
+    return;
+  }
+
+  const size_t buffer_size = input_tensor->tensor_size();
   std::vector<float> results_vector{};
-  results_vector.resize(buffer_size);
+  results_vector.resize(input_tensor->element_count());
+
+  auto input_handle = input_tensor->get_read_handle(*cuda_stream_);
+  const uint8_t * buffer_ptr = input_handle.get_ptr();
   auto cuda_result = cudaMemcpyAsync(
-    results_vector.data(), tensor.GetBuffer(), buffer_size,
-    cudaMemcpyDefault, cuda_stream_);
+    results_vector.data(), buffer_ptr, buffer_size,
+    cudaMemcpyDefault, *cuda_stream_);
   if (cuda_result != cudaSuccess) {
     throw std::runtime_error("Failed to copy results from CUDA buffer");
   }
-  cuda_result = cudaStreamSynchronize(cuda_stream_);
+  cuda_result = cudaStreamSynchronize(*cuda_stream_);
   if (cuda_result != cudaSuccess) {
     throw std::runtime_error("Failed to synchronize CUDA stream");
   }
@@ -119,7 +149,6 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
 
   RCLCPP_DEBUG(this->get_logger(), "Count of bboxes: %lu", bboxes.size());
   cv::dnn::NMSBoxes(bboxes, scores, confidence_threshold_, nms_threshold_, indices, 5);
-  RCLCPP_DEBUG(this->get_logger(), "# boxes after NMS: %lu", indices.size());
 
   vision_msgs::msg::Detection2DArray final_detections_arr;
 
@@ -142,21 +171,22 @@ void YoloV8DecoderNode::InputCallback(const nvidia::isaac_ros::nitros::NitrosTen
     detection.bbox.size_x = w;
     detection.bbox.size_y = h;
 
-
     // Class probabilities
     vision_msgs::msg::ObjectHypothesisWithPose hyp;
     hyp.hypothesis.class_id = std::to_string(classes.at(ind));
     hyp.hypothesis.score = scores.at(ind);
     detection.results.push_back(hyp);
 
-    detection.header.stamp.sec = msg.GetTimestampSeconds();
-    detection.header.stamp.nanosec = msg.GetTimestampNanoseconds();
+    detection.header.frame_id = msg->get_header().frame_id;
+    detection.header.stamp.sec = msg->get_header().stamp.sec;
+    detection.header.stamp.nanosec = msg->get_header().stamp.nanosec;
 
     final_detections_arr.detections.push_back(detection);
   }
 
-  final_detections_arr.header.stamp.sec = msg.GetTimestampSeconds();
-  final_detections_arr.header.stamp.nanosec = msg.GetTimestampNanoseconds();
+  final_detections_arr.header.frame_id = msg->get_header().frame_id;
+  final_detections_arr.header.stamp.sec = msg->get_header().stamp.sec;
+  final_detections_arr.header.stamp.nanosec = msg->get_header().stamp.nanosec;
   pub_->publish(final_detections_arr);
 }
 

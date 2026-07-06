@@ -29,6 +29,7 @@ Proof-Of-Life test for the Isaac ROS DetectNet package.
 
 import os
 import pathlib
+import shutil
 import subprocess
 import time
 
@@ -46,32 +47,43 @@ from vision_msgs.msg import Detection2DArray
 
 
 _TEST_CASE_NAMESPACE = 'detectnet_node_test'
+MODEL_NAME = 'detectnet'
+MODEL_VERSION = 1
+
+if os.environ.get('TENSORRT_COMMAND', None):
+    TRTEXEC_EXECUTABLE = os.environ['TENSORRT_COMMAND']
+
+    # Source model files are in runfiles tree which is READ-ONLY on remote execution,
+    # so we need to create a writeable copy within TEST_TMPDIR for the generated
+    # engine and Triton model repository.
+    _src_model_dir = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), 'dummy_model')
+
+    _tmpdir = os.environ.get('TEST_TMPDIR', '/tmp')
+    MODEL_DIR_PATH = os.path.join(_tmpdir, 'triton_models')
+
+    _dst_model_dir = os.path.join(MODEL_DIR_PATH, MODEL_NAME)
+    os.makedirs(os.path.join(
+        _dst_model_dir, str(MODEL_VERSION)), exist_ok=True)
+
+    _src_detectnet_dir = os.path.join(_src_model_dir, MODEL_NAME)
+    for _fname in ['config.pbtxt', 'labels.txt']:
+        _src = os.path.join(_src_detectnet_dir, _fname)
+        _dst = os.path.join(_dst_model_dir, _fname)
+        if os.path.exists(_src):
+            shutil.copy2(_src, _dst)
+else:
+    MODEL_DIR_PATH = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), 'dummy_model')
+    TRTEXEC_EXECUTABLE = '/usr/src/tensorrt/bin/trtexec'
+
+ONNX_PATH = f'{MODEL_DIR_PATH}/{MODEL_NAME}/{MODEL_VERSION}/model.onnx'
+ENGINE_FILE_PATH = f'{MODEL_DIR_PATH}/{MODEL_NAME}/{MODEL_VERSION}/model.plan'
 
 
 @pytest.mark.rostest
 def generate_test_description():
     """Generate launch description for testing relevant nodes."""
-    if os.environ.get('USE_BAZEL_RUNFILES_PATH', '0') == '1':
-        from python.runfiles import Runfiles
-        r = Runfiles.Create()
-        model_dir_path = r.Rlocation('/'.join([
-            '_main',
-            'ros_ws',
-            'src',
-            'isaac_ros_object_detection',
-            'isaac_ros_detectnet',
-            'test',
-            'dummy_model',
-        ]))
-    else:
-        launch_dir_path = os.path.dirname(os.path.realpath(__file__))
-        model_dir_path = launch_dir_path + '/dummy_model'
-
-    model_name = 'detectnet'
-    model_version = 1
-    onnx_path = f'{model_dir_path}/{model_name}/{model_version}/model.onnx'
-    engine_file_path = f'{model_dir_path}/{model_name}/{model_version}/model.plan'
-
     # Generate a mock model with DetectNet-like I/O
     MockModelGenerator.generate(
         input_bindings=[
@@ -81,11 +93,11 @@ def generate_test_description():
             MockModelGenerator.Binding('output_bbox/BiasAdd:0', [-1, 8, 23, 40], torch.float32),
             MockModelGenerator.Binding('output_cov/Sigmoid:0', [-1, 2, 23, 40], torch.float32)
         ],
-        output_onnx_path=onnx_path
+        output_onnx_path=ONNX_PATH
     )
 
     # Read labels from text file
-    labels_file_path = f'{model_dir_path}/{model_name}/labels.txt'
+    labels_file_path = f'{MODEL_DIR_PATH}/{MODEL_NAME}/labels.txt'
     with open(labels_file_path, 'r') as fd:
         label_list = fd.read().strip().splitlines()
 
@@ -95,29 +107,16 @@ def generate_test_description():
         '--maxShapes=input_1:0:1x3x368x640',
         '--minShapes=input_1:0:1x3x368x640',
         '--optShapes=input_1:0:1x3x368x640',
-        f'--onnx={onnx_path}',
-        f'--saveEngine={engine_file_path}',
+        f'--onnx={ONNX_PATH}',
+        f'--saveEngine={ENGINE_FILE_PATH}',
         '--fp16',
     ]
 
-    if os.environ.get('USE_BAZEL_RUNFILES_PATH', '0') == '1':
-        trtexec_executable = r.Rlocation(
-            '/'.join([
-                '_repo_rules2+tensor_rt_public_x86_64',
-                'usr',
-                'src',
-                'tensorrt',
-                'bin',
-                'trtexec',
-            ])
-        )
-    else:
-        trtexec_executable = '/usr/src/tensorrt/bin/trtexec'
     print('Running command:\n' +
-          ' '.join([trtexec_executable] + trtexec_args))
+          ' '.join([TRTEXEC_EXECUTABLE] + trtexec_args))
     start_time = time.time()
     result = subprocess.run(
-        [trtexec_executable] + trtexec_args,
+        [TRTEXEC_EXECUTABLE] + trtexec_args,
         env=os.environ,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
@@ -145,6 +144,7 @@ def generate_test_description():
             'dnn_image_encoder_namespace': IsaacROSDetectNetPipelineTest.generate_namespace(
                 _TEST_CASE_NAMESPACE),
             'tensor_output_topic': 'tensor_pub',
+            'tensor_name': 'input_tensor',
         }.items(),
     )
 
@@ -156,7 +156,7 @@ def generate_test_description():
         plugin='nvidia::isaac_ros::dnn_inference::TritonNode',
         parameters=[{
             'model_name': 'detectnet',
-            'model_repository_paths': [model_dir_path],
+            'model_repository_paths': [MODEL_DIR_PATH],
             'input_tensor_names': ['input_tensor'],
             'input_binding_names': ['input_1:0'],
             'input_tensor_formats': ['nitros_tensor_list_nchw_rgb_f32'],
@@ -250,6 +250,7 @@ class IsaacROSDetectNetPipelineTest(IsaacROSBaseTest):
                 'Publishing images until detection response received '
                 f'(timeout={self.TIMEOUT_SEC}s)')
             start_time = time.time()
+
             while 'detectnet/detections' not in received_messages:
                 if time.time() - start_time > self.TIMEOUT_SEC:
                     self.fail('Timed out waiting for detection response')

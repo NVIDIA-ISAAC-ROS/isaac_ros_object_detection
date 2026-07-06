@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,10 +22,11 @@
 #include <string>
 #include <vector>
 
-#include "isaac_ros_nitros/nitros_node.hpp"
-#include "isaac_ros_tensor_list_interfaces/msg/tensor_list.hpp"
-#include "vision_msgs/msg/detection2_d_array.hpp"
+#include "deepstream_utils/nvdsinferutils/include/nvdsinfer_dbscan.h"
+#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
+#include "isaac_ros_common/cuda_stream.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "vision_msgs/msg/detection2_d_array.hpp"
 
 namespace nvidia
 {
@@ -34,22 +35,16 @@ namespace isaac_ros
 namespace detectnet
 {
 
-class DetectNetDecoderNode : public nitros::NitrosNode
+class DetectNetDecoderNode : public rclcpp::Node
 {
 public:
-  explicit DetectNetDecoderNode(const rclcpp::NodeOptions &);
+  explicit DetectNetDecoderNode(const rclcpp::NodeOptions & options);
 
   ~DetectNetDecoderNode();
 
-  DetectNetDecoderNode(const DetectNetDecoderNode &) = delete;
-
-  DetectNetDecoderNode & operator=(const DetectNetDecoderNode &) = delete;
-
-  // The callback to be implemented by users for any required initialization
-  void preLoadGraphCallback() override;
-  void postLoadGraphCallback() override;
-
 private:
+  void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorList::ConstSharedPtr msg);
+
   // List of string labels for the specific network
   const std::vector<std::string> label_list_;
   // Flag to enable minimum confidence thresholding
@@ -83,6 +78,20 @@ private:
   const double bounding_box_scale_;
   // Bounding box offset for both X and Y dimensions
   const double bounding_box_offset_;
+  // Tensor names inside the incoming NitrosTensorList (match Triton / graph output names)
+  const std::string cov_tensor_name_;
+  const std::string bbox_tensor_name_;
+
+  const int16_t input_queue_size_;
+  const int16_t output_queue_size_;
+
+  rclcpp::Subscription<nvidia::isaac_ros::nitros::NitrosTensorList>::SharedPtr nitros_sub_;
+  rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr pub_;
+
+  nvidia::isaac_ros::common::CudaStreamPtr cuda_stream_;
+
+  // tuning parameters data structure dbscan library
+  NvDsInferDBScanClusteringParams params_;
 };
 
 }  // namespace detectnet

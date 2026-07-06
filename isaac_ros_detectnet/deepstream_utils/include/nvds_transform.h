@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2020-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2020-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NVDS_TRANSFORM_H__
-#define __NVDS_TRANSFORM_H__
+#pragma once
 
 #if defined(__cplusplus)
 extern "C" {
@@ -26,7 +25,8 @@ extern "C" {
 #include <cuda_runtime_api.h>
 
 /** API return values */
-typedef enum {
+typedef enum
+{
   /** Success */
   NVDST_STATUS_SUCCESS = 0,
   /** Failure */
@@ -52,37 +52,40 @@ typedef const char *NvDst_TransformSelector;
 /** Parameter selector as string */
 typedef const char *NvDst_ParameterSelector;
 
-/** @brief Create a new instance of an transform.
+/** @brief Create a new instance of a transform.
  *
- * @param[in] code  The selector code for the desired transform.
- * @param[out] transform  A handle to the transform instantiation.
+ * @param[in] transform  The selector code for the desired transform.
+ * @param[out] handle  A handle to the transform instantiation.
+
  *
  * @return  Status values as enumerated in @ref NvDst_Status
  */
-NvDst_Status NvDst_CreateTransform (NvDst_TransformSelector transform, NvDst_Handle *handle);
+NvDst_Status NvDst_CreateTransform(NvDst_TransformSelector transform, NvDst_Handle *handle);
 
 /** @brief Delete a previously instantiated transform.
  *
- * @param[in] transform  A handle to the transform to be deleted.
+ * @param[in] handle  A handle to the transform to be deleted.
  *
  * @return  Status values as enumerated in @ref NvDst_Status
  */
-NvDst_Status NvDst_DestroyTransform (NvDst_Handle handle);
+NvDst_Status NvDst_DestroyTransform(NvDst_Handle handle);
 
 /** @brief Set the value of the selected parameter (unsigned int, float, char*)
  *
  * @param[in]  transform   The transform to configure.
- * @param[in]  param_name  The selector of the transfor parameter to configure.
- * @param[in]  val         The value to be assigned to the selected transform parameter.
+ * @param[in]  param_name  The selector of the transform parameter to configure.
  *
  * @return  Status values as enumerated in @ref NvDst_Status
  */
-NvDst_Status NvDst_SetU32(NvDst_Handle transform, NvDst_ParameterSelector param_name,
-                                    unsigned int val);
-NvDst_Status NvDst_SetFloat(NvDst_Handle transform, NvDst_ParameterSelector param_name,
-                                    float val);
-NvDst_Status NvDst_SetString(NvDst_Handle transform, NvDst_ParameterSelector param_name,
-                                       const char* val);
+NvDst_Status NvDst_SetU32(
+  NvDst_Handle transform, NvDst_ParameterSelector param_name,
+  unsigned int val);
+NvDst_Status NvDst_SetFloat(
+  NvDst_Handle transform, NvDst_ParameterSelector param_name,
+  float val);
+NvDst_Status NvDst_SetString(
+  NvDst_Handle transform, NvDst_ParameterSelector param_name,
+  const char * val);
 
 /** @brief Get the value of the selected parameter (unsigned int, float, char*)
 *
@@ -93,33 +96,41 @@ NvDst_Status NvDst_SetString(NvDst_Handle transform, NvDst_ParameterSelector par
 *
 * @return  Status values as enumerated in @ref NvDst_Status
 */
-NvDst_Status NvDst_GetU32(NvDst_Handle transform, NvDst_ParameterSelector param_name,
-                                    unsigned int* val);
-NvDst_Status NvDst_GetFloat(NvDst_Handle transform, NvDst_ParameterSelector param_name,
-                                    float* val);
-NvDst_Status NvDst_GetString(NvDst_Handle transform, NvDst_ParameterSelector param_name,
-                                       char* val, int max_length);
+NvDst_Status NvDst_GetU32(
+  NvDst_Handle transform, NvDst_ParameterSelector param_name,
+  unsigned int * val);
+NvDst_Status NvDst_GetFloat(
+  NvDst_Handle transform, NvDst_ParameterSelector param_name,
+  float * val);
+NvDst_Status NvDst_GetString(
+  NvDst_Handle transform, NvDst_ParameterSelector param_name,
+  char * val, int max_length);
 
 /** @brief Initializes the DSP transform based on the set params.
  *
- * @param[in]  transform  The transform object handle.
+ * @param[in]  handle  The transform object handle.
+ * @param[in]  frame_size  The size of each frame to be processed.
+ * @param[in]  num_channels  The number of audio channels.
  *
  * @return  Status values as enumerated in @ref NvDst_Status
  */
-NvDst_Status NvDst_LoadTransform (NvDst_Handle handle, unsigned int frame_size,
-                                       unsigned int num_channels);
+NvDst_Status NvDst_LoadTransform(
+  NvDst_Handle handle, unsigned int frame_size,
+  unsigned int num_channels);
 
 /** @brief Return the exact amount of output buffer needed by NvDst_Run()
  *
  * @note To be called only after NvDst_Load(). If called before, it may return invalid results
  *
- * @param[in]  transform  The transform handle.
+ * @param[in]  handle  The transform handle.
  * @param[in]  num_output_elements  The number of expected elements per channel to be allocated for the
  *                                              output buffer.
  *
  * @return  Status values as enumerated in @ref NvDst_Status
  */
-NvDst_Status NvDst_GetExpectedOutputElements (NvDst_Handle handle, unsigned int *num_output_elements);
+NvDst_Status NvDst_GetExpectedOutputElements(
+  NvDst_Handle handle,
+  unsigned int *num_output_elements);
 
 /** @brief Process the input buffer as per the Audio transform selected. e.g. mel spectrogram
  *
@@ -134,12 +145,11 @@ NvDst_Status NvDst_GetExpectedOutputElements (NvDst_Handle handle, unsigned int 
  *
  * @return  Status values as enumerated in @ref NvDst_Status
  */
-NvDst_Status NvDst_Run(NvDst_Handle transform, void** input, void** output,
-                             unsigned int num_input_elements, unsigned int num_output_element,
-                             unsigned int num_channels, cudaStream_t stream);
+NvDst_Status NvDst_Run(
+  NvDst_Handle transform, void ** input, void ** output,
+  unsigned int num_input_elements, unsigned int num_output_elements,
+  unsigned int num_channels, cudaStream_t stream);
 
 #if defined(__cplusplus)
 }
 #endif
-
-#endif /* __NVDS_TRANSFORM_H__ */

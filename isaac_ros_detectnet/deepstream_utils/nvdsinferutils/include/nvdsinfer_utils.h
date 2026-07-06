@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2018-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@
 
 /**
  * @file
- * <b>Utility functions required by DeepStream Inferance API </b>
+ * <b>Utility functions required by DeepStream Inference API </b>
  */
 
-#ifndef __NVDSINFER_UTILS_H__
-#define __NVDSINFER_UTILS_H__
+#ifndef NVDSINFER_UTILS_H_
+#define NVDSINFER_UTILS_H_
 
-#include "nvdsinfer_dbscan.h"
-#include "nvdsinfer_tlt.h"
+#include "deepstream_utils/nvdsinferutils/include/nvdsinfer_dbscan.h"
+#include "deepstream_utils/nvdsinferutils/include/nvdsinfer_tlt.h"
 
-#endif
+#endif  // NVDSINFER_UTILS_H_

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,11 @@
 
 #include "isaac_ros_rtdetr/rtdetr_decoder_node.hpp"
 
+#include <stdexcept>
+#include <vector>
+
+#include "isaac_ros_common/cuda_stream.hpp"
+
 namespace nvidia
 {
 namespace isaac_ros
@@ -28,34 +33,28 @@ namespace
 
 template<typename T>
 std::vector<T> TensorToVector(
-  const nvidia::isaac_ros::nitros::NitrosTensorListView & tensor_list,
+  const nvidia::isaac_ros::nitros::NitrosTensorList & tensor_list,
   const std::string & tensor_name, cudaStream_t stream)
 {
-  auto tensor = tensor_list.GetNamedTensor(tensor_name);
-  std::vector<T> vector(tensor.GetElementCount());
+  auto tensor_ptr = tensor_list.get_tensor_by_name(tensor_name);
+  if (tensor_ptr == nullptr) {
+    RCLCPP_ERROR(rclcpp::get_logger("RtDetrDecoderNode"), "Tensor is not found");
+    throw std::runtime_error("Tensor(" + tensor_name + ") is not found");
+  }
+  std::vector<T> vector(tensor_ptr->element_count());
   cudaMemcpyAsync(
-    vector.data(), tensor.GetBuffer(),
-    tensor.GetTensorSize(), cudaMemcpyDefault, stream);
+    vector.data(), tensor_ptr->get_read_handle(stream).get_ptr(),
+    tensor_ptr->tensor_size(), cudaMemcpyDefault, stream);
   return vector;
 }
 
 }  // namespace
 
-RtDetrDecoderNode::RtDetrDecoderNode(const rclcpp::NodeOptions options)
+RtDetrDecoderNode::RtDetrDecoderNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("rtdetr_decoder_node", options),
   // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
-  input_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos")},
-  output_qos_{::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos")},
-  nitros_sub_{std::make_shared<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-        nvidia::isaac_ros::nitros::NitrosTensorListView>>(
-      this,
-      "tensor_sub",
-      nvidia::isaac_ros::nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name,
-      std::bind(&RtDetrDecoderNode::InputCallback, this,
-      std::placeholders::_1),
-      nvidia::isaac_ros::nitros::NitrosDiagnosticsConfig{}, input_qos_)},
-  pub_{create_publisher<vision_msgs::msg::Detection2DArray>(
-      "detections_output", output_qos_)},
+  input_queue_size_(declare_parameter<int16_t>("input_queue_size", 10)),
+  output_queue_size_(declare_parameter<int16_t>("output_queue_size", 10)),
   labels_tensor_name_{declare_parameter<std::string>(
       "labels_tensor_name",
       "labels")},
@@ -67,27 +66,46 @@ RtDetrDecoderNode::RtDetrDecoderNode(const rclcpp::NodeOptions options)
       "scores")},
   confidence_threshold_{declare_parameter<double>("confidence_threshold", 0.9)}
 {
-  cudaStreamCreate(&stream_);
+  cuda_stream_ = ::nvidia::isaac_ros::common::createCudaStream("RtDetrDecoderNode");
+
+  const rclcpp::QoS input_qos = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "input_qos").keep_last(input_queue_size_);
+  const rclcpp::QoS output_qos = ::isaac_ros::common::AddQosParameter(
+    *this, "DEFAULT", "output_qos").keep_last(output_queue_size_);
+
+  // Create subscribers for input and output tensors
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  nitros_sub_ = create_subscription<nvidia::isaac_ros::nitros::NitrosTensorList>(
+    "tensor_sub", input_qos,
+    std::bind(&RtDetrDecoderNode::InputCallback, this, std::placeholders::_1),
+    sub_options);
+  detections_pub_ = create_publisher<vision_msgs::msg::Detection2DArray>(
+    "detections_output", output_qos, pub_options);
+
+  RCLCPP_DEBUG(get_logger(), "[RtDetrDecoderNode] Setup complete");
 }
 
-RtDetrDecoderNode::~RtDetrDecoderNode()
-{
-  cudaStreamDestroy(stream_);
-}
+RtDetrDecoderNode::~RtDetrDecoderNode() {}
 
 void RtDetrDecoderNode::InputCallback(
-  const nvidia::isaac_ros::nitros::NitrosTensorListView & msg)
+  const nvidia::isaac_ros::nitros::NitrosTensorList & msg)
 {
+  RCLCPP_DEBUG(get_logger(), "[RtDetrDecoderNode] InputCallback called");
+
   // Bring labels, boxes, and scores back to CPU
-  auto labels = TensorToVector<int64_t>(msg, labels_tensor_name_, stream_);
-  auto boxes = TensorToVector<float>(msg, boxes_tensor_name_, stream_);
-  auto scores = TensorToVector<float>(msg, scores_tensor_name_, stream_);
-  cudaStreamSynchronize(stream_);
+  auto labels = TensorToVector<int64_t>(msg, labels_tensor_name_, *cuda_stream_);
+  auto boxes = TensorToVector<float>(msg, boxes_tensor_name_, *cuda_stream_);
+  auto scores = TensorToVector<float>(msg, scores_tensor_name_, *cuda_stream_);
+  CHECK_CUDA_ERROR(cudaStreamSynchronize(*cuda_stream_),
+    "[RtDetrDecoderNode] Failed to synchronize CUDA stream");
 
   std_msgs::msg::Header header{};
-  header.stamp.sec = msg.GetTimestampSeconds();
-  header.stamp.nanosec = msg.GetTimestampNanoseconds();
-  header.frame_id = msg.GetFrameId();
+  header.stamp.sec = msg.get_timestamp_sec();
+  header.stamp.nanosec = msg.get_timestamp_nsec();
+  header.frame_id = msg.get_frame_id();
 
   vision_msgs::msg::Detection2DArray detections;
   detections.header = header;
@@ -124,7 +142,7 @@ void RtDetrDecoderNode::InputCallback(
     detections.detections.push_back(detection);
   }
 
-  pub_->publish(detections);
+  detections_pub_->publish(detections);
 }
 
 }  // namespace rtdetr

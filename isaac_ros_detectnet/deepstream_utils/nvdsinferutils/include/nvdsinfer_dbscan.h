@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2018-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2018-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,8 +32,8 @@
  * @{
  */
 
-#ifndef __NVDSINFER_DBSCAN_H__
-#define __NVDSINFER_DBSCAN_H__
+#ifndef NVDSINFER_DBSCAN_H_
+#define NVDSINFER_DBSCAN_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -53,15 +53,15 @@ typedef struct NvDsInferDBScan *NvDsInferDBScanHandle;
 /** Holds object clustering parameters required by DBSCAN. */
 typedef struct
 {
-    float eps;
-    uint32_t minBoxes;
-    /** Holds a Boolean; true enables the area-to-hit ratio (ATHR) filter.
-     The ATHR is calculated as: ATHR = sqrt(clusterArea) / nObjectsInCluster. */
-    int enableATHRFilter;
-    /** Holds the area-to-hit ratio threshold. */
-    float thresholdATHR;
-    /** Holds the sum of neighborhood confidence thresholds. */
-    float minScore;
+  float eps;
+  uint32_t minBoxes;
+  /** Holds a Boolean; true enables the area-to-hit ratio (ATHR) filter.
+  The ATHR is calculated as: ATHR = sqrt(clusterArea) / nObjectsInCluster. */
+  int enableATHRFilter;
+  /** Holds the area-to-hit ratio threshold. */
+  float thresholdATHR;
+  /** Holds the sum of neighborhood confidence thresholds. */
+  float minScore;
 } NvDsInferDBScanClusteringParams;
 
 /**
@@ -90,9 +90,11 @@ void NvDsInferDBScanDestroy(NvDsInferDBScanHandle handle);
  *                              in the @a objects array. The function sets
  *                              this value after clustering.
  */
-void NvDsInferDBScanCluster(NvDsInferDBScanHandle handle,
-        NvDsInferDBScanClusteringParams *params,  NvDsInferObjectDetectionInfo *objects,
-        size_t *numObjects);
+void NvDsInferDBScanCluster(
+  NvDsInferDBScanHandle handle,
+  NvDsInferDBScanClusteringParams * params,
+  NvDsInferObjectDetectionInfo * objects,
+  size_t * numObjects);
 
 /**
  * Clusters an array of objects in place using specified clustering parameters.
@@ -111,14 +113,16 @@ void NvDsInferDBScanCluster(NvDsInferDBScanHandle handle,
  *                              in the @a objects array. The function sets
  *                              this value after clustering.
  */
-void NvDsInferDBScanClusterHybrid(NvDsInferDBScanHandle handle,
-        NvDsInferDBScanClusteringParams *params,  NvDsInferObjectDetectionInfo *objects,
-        size_t *numObjects);
+void NvDsInferDBScanClusterHybrid(
+  NvDsInferDBScanHandle handle,
+  NvDsInferDBScanClusteringParams * params,
+  NvDsInferObjectDetectionInfo * objects,
+  size_t * numObjects);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif  // NVDSINFER_DBSCAN_H_
 
 /** @} */

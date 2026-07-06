@@ -154,6 +154,9 @@ def launch_setup(context, *args, **kwargs):
         name='grounding_dino_preprocessor',
         package='isaac_ros_grounding_dino',
         plugin='nvidia::isaac_ros::grounding_dino::GroundingDinoPreprocessorNode',
+        parameters=[{
+            'input_image_tensor_name': 'images',
+        }],
         remappings=[
             ('image_tensor', 'reshaped_tensor')
         ]

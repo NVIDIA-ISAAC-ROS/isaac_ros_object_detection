@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2019-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2019-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,8 +33,8 @@
  * @{
  */
 
-#ifndef __NVDSINFER_TLT_H__
-#define __NVDSINFER_TLT_H__
+#ifndef NVDSINFER_TLT_H_
+#define NVDSINFER_TLT_H_
 
 #include <nvdsinfer_custom_impl.h>
 
@@ -47,12 +47,13 @@
  * applicable to UFF models also apply to TLT encoded models.
  */
 extern "C"
-bool NvDsInferCudaEngineGetFromTltModel(nvinfer1::IBuilder * const builder,
-        nvinfer1::IBuilderConfig * const builderConfig,
-        const NvDsInferContextInitParams * const initParams,
-        nvinfer1::DataType dataType,
-        nvinfer1::ICudaEngine *& cudaEngine);
+bool NvDsInferCudaEngineGetFromTltModel(
+  nvinfer1::IBuilder * const builder,
+  nvinfer1::IBuilderConfig * const builderConfig,
+  const NvDsInferContextInitParams * const initParams,
+  nvinfer1::DataType dataType,
+  nvinfer1::ICudaEngine *&cudaEngine);
 
-#endif
+#endif  // NVDSINFER_TLT_H_
 
 /** @} */

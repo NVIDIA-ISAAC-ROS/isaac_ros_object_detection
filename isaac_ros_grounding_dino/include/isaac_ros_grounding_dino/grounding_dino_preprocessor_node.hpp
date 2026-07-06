@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,10 +28,7 @@
 #include "isaac_ros_grounding_dino_interfaces/srv/get_text_tokens.hpp"
 #include "isaac_ros_grounding_dino_interfaces/srv/set_prompt.hpp"
 #include "isaac_ros_grounding_dino_interfaces/srv/sync_data_with_decoder.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_publisher.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_subscriber.hpp"
 #include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_view.hpp"
 #include "isaac_ros_tensor_list_interfaces/msg/tensor_list.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -47,7 +44,7 @@ namespace Nitros = nvidia::isaac_ros::nitros;
 class GroundingDinoPreprocessorNode : public rclcpp::Node
 {
 public:
-  explicit GroundingDinoPreprocessorNode(const rclcpp::NodeOptions options = rclcpp::NodeOptions());
+  explicit GroundingDinoPreprocessorNode(const rclcpp::NodeOptions & options);
 
   ~GroundingDinoPreprocessorNode();
 
@@ -58,7 +55,7 @@ private:
     std::shared_ptr<isaac_ros_grounding_dino_interfaces::srv::SetPrompt::Response> response);
 
   // Callback for single image tensor input
-  void ImageCallback(const Nitros::NitrosTensorListView & msg);
+  void ImageCallback(const Nitros::NitrosTensorList::ConstSharedPtr & tensor_msg);
 
   // Helper function to set the prompt
   bool SetPrompt(const std::string & prompt);
@@ -70,8 +67,17 @@ private:
   bool SyncDataWithDecoder();
 
   // QoS settings
-  rclcpp::QoS input_qos_;
-  rclcpp::QoS output_qos_;
+  const int16_t input_queue_size_;
+  const int16_t output_queue_size_;
+  std::string input_image_tensor_name_;
+  // Default prompt
+  std::string default_prompt_;
+  // Service call timeout in seconds
+  int service_call_timeout_;
+  // Service discovery timeout in seconds
+  int service_discovery_timeout_;
+  int64_t memory_pool_block_size_;
+  int64_t memory_pool_num_blocks_;
 
   // Service server for SetPrompt
   rclcpp::Service<isaac_ros_grounding_dino_interfaces::srv::SetPrompt>::SharedPtr
@@ -86,10 +92,10 @@ private:
     sync_data_client_;
 
   // Subscription to image tensor input
-  std::shared_ptr<Nitros::ManagedNitrosSubscriber<Nitros::NitrosTensorListView>> image_nitros_sub_;
+  rclcpp::Subscription<nvidia::isaac_ros::nitros::NitrosTensorList>::SharedPtr image_nitros_sub_;
 
   // Publisher for the output tensor
-  std::shared_ptr<Nitros::ManagedNitrosPublisher<Nitros::NitrosTensorList>> tensor_pub_;
+  rclcpp::Publisher<nvidia::isaac_ros::nitros::NitrosTensorList>::SharedPtr tensor_pub_;
 
   // Cached text tensors and pos maps from tokenizer
   std::optional<isaac_ros_tensor_list_interfaces::msg::TensorList> text_tensors_;
@@ -100,21 +106,13 @@ private:
   std::mutex mutex_;
 
   // CUDA stream for GPU operations
-  cudaStream_t stream_;
+  ::nvidia::isaac_ros::common::CudaStreamPtr cuda_stream_;
+  nvidia::isaac_ros::nitros::CUDAMemoryPool pool_;
 
   // Callback groups for different types of callbacks
   rclcpp::CallbackGroup::SharedPtr service_cb_group_;
   rclcpp::CallbackGroup::SharedPtr get_text_tokens_cb_group_;
   rclcpp::CallbackGroup::SharedPtr sync_data_cb_group_;
-
-  // Default prompt
-  std::string default_prompt_;
-
-  // Service call timeout in seconds
-  int service_call_timeout_;
-
-  // Service discovery timeout in seconds
-  int service_discovery_timeout_;
 };
 
 }  // namespace grounding_dino

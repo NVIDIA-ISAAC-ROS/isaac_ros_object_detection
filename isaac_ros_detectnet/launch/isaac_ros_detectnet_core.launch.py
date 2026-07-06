@@ -37,7 +37,7 @@ class IsaacROSDetectnetLaunchFragment(IsaacROSLaunchFragment):
         """Generate launch description for testing relevant nodes."""
         isaac_ros_ws_path = os.environ.get('ISAAC_ROS_WS', '')
         model_dir_path = os.path.join(isaac_ros_ws_path,
-                                      'isaac_ros_assets/models')
+                                      'isaac_ros_assets/models/triton')
         # Read labels from text file
         labels_file_path = f'{model_dir_path}/peoplenet/1/labels.txt'
         with open(labels_file_path, 'r') as fd:
@@ -94,6 +94,7 @@ class IsaacROSDetectnetLaunchFragment(IsaacROSLaunchFragment):
                     'image_input_topic': '/image_rect',
                     'camera_info_input_topic': '/camera_info_rect',
                     'tensor_output_topic': '/tensor_pub',
+                    'tensor_name': 'input_tensor',
                     'keep_aspect_ratio': 'False'
                 }.items(),
             )
