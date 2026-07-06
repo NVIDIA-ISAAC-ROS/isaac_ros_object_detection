@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2017-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2017-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,8 +31,7 @@
  * @{
  */
 
-#ifndef _NVDSINFER_H_
-#define _NVDSINFER_H_
+#pragma once
 
 #include <stdint.h>
 
@@ -95,13 +94,13 @@ typedef struct
   NvDsInferDataType dataType;
   /** Holds the dimensions of the layer. */
   union {
-      NvDsInferDims inferDims;
-      NvDsInferDims dims _DS_DEPRECATED_("dims is deprecated. Use inferDims instead");
+    NvDsInferDims inferDims;
+    NvDsInferDims dims _DS_DEPRECATED_("dims is deprecated. Use inferDims instead");
   };
   /** Holds the TensorRT binding index of the layer. */
   int bindingIndex;
   /** Holds the name of the layer. */
-  const char* layerName;
+  const char * layerName;
   /** Holds a pointer to the buffer for the layer data. */
   void *buffer;
   /** Holds a Boolean; true if the layer is an input layer,
@@ -126,14 +125,14 @@ typedef struct
  * Sets values on a @ref NvDsInferDimsCHW structure from a @ref NvDsInferDims
  * structure.
  */
-#define getDimsCHWFromDims(dimsCHW,dims) \
+#define getDimsCHWFromDims(dimsCHW, dims) \
   do { \
     (dimsCHW).c = (dims).d[0]; \
     (dimsCHW).h = (dims).d[1]; \
     (dimsCHW).w = (dims).d[2]; \
   } while (0)
 
-#define getDimsHWCFromDims(dimsCHW,dims) \
+#define getDimsHWCFromDims(dimsCHW, dims) \
   do { \
     (dimsCHW).h = (dims).d[0]; \
     (dimsCHW).w = (dims).d[1]; \
@@ -203,57 +202,59 @@ typedef struct
  */
 typedef struct
 {
-    /** Holds the index of the attribute's label. This index corresponds to
-     the order of output layers specified in the @a outputCoverageLayerNames
-     vector during initialization. */
-    unsigned int attributeIndex;
-    /** Holds the the attribute's output value. */
-    unsigned int attributeValue;
-    /** Holds the attribute's confidence level. */
-    float attributeConfidence;
-    /** Holds a pointer to a string containing the attribute's label.
-     Memory for the string must not be freed. Custom parsing functions must
-     allocate strings on heap using strdup or equivalent. */
-    char *attributeLabel;
+  /** Holds the index of the attribute's label. This index corresponds to
+   the order of output layers specified in the @a outputCoverageLayerNames
+   vector during initialization. */
+  unsigned int attributeIndex;
+  /** Holds the the attribute's output value. */
+  unsigned int attributeValue;
+  /** Holds the attribute's confidence level. */
+  float attributeConfidence;
+  /** Holds a pointer to a string containing the attribute's label.
+   Memory for the string must not be freed. Custom parsing functions must
+   allocate strings on heap using strdup or equivalent. */
+  char *attributeLabel;
 } NvDsInferAttribute;
 
 /**
  * Enum for the status codes returned by NvDsInferContext.
  */
-typedef enum {
-    /** NvDsInferContext operation succeeded. */
-    NVDSINFER_SUCCESS = 0,
-    /** Failed to configure the NvDsInferContext instance possibly due to an
-     *  erroneous initialization property. */
-    NVDSINFER_CONFIG_FAILED,
-    /** Custom Library interface implementation failed. */
-    NVDSINFER_CUSTOM_LIB_FAILED,
-    /** Invalid parameters were supplied. */
-    NVDSINFER_INVALID_PARAMS,
-    /** Output parsing failed. */
-    NVDSINFER_OUTPUT_PARSING_FAILED,
-    /** CUDA error was encountered. */
-    NVDSINFER_CUDA_ERROR,
-    /** TensorRT interface failed. */
-    NVDSINFER_TENSORRT_ERROR,
-    /** Resource error was encountered. */
-    NVDSINFER_RESOURCE_ERROR,
-    /** Triton error was encountered. Renamed TRT-IS to Triton. */
-    NVDSINFER_TRITON_ERROR,
-    /** [deprecated]TRT-IS error was encountered */
-    NVDSINFER_TRTIS_ERROR = NVDSINFER_TRITON_ERROR,
-    /** Unknown error was encountered. */
-    NVDSINFER_UNKNOWN_ERROR
+typedef enum
+{
+  /** NvDsInferContext operation succeeded. */
+  NVDSINFER_SUCCESS = 0,
+  /** Failed to configure the NvDsInferContext instance possibly due to an
+   *  erroneous initialization property. */
+  NVDSINFER_CONFIG_FAILED,
+  /** Custom Library interface implementation failed. */
+  NVDSINFER_CUSTOM_LIB_FAILED,
+  /** Invalid parameters were supplied. */
+  NVDSINFER_INVALID_PARAMS,
+  /** Output parsing failed. */
+  NVDSINFER_OUTPUT_PARSING_FAILED,
+  /** CUDA error was encountered. */
+  NVDSINFER_CUDA_ERROR,
+  /** TensorRT interface failed. */
+  NVDSINFER_TENSORRT_ERROR,
+  /** Resource error was encountered. */
+  NVDSINFER_RESOURCE_ERROR,
+  /** Triton error was encountered. Renamed TRT-IS to Triton. */
+  NVDSINFER_TRITON_ERROR,
+  /** [deprecated]TRT-IS error was encountered */
+  NVDSINFER_TRTIS_ERROR = NVDSINFER_TRITON_ERROR,
+  /** Unknown error was encountered. */
+  NVDSINFER_UNKNOWN_ERROR
 } NvDsInferStatus;
 
 /**
  * Enum for the log levels of NvDsInferContext.
  */
-typedef enum {
-    NVDSINFER_LOG_ERROR = 0,
-    NVDSINFER_LOG_WARNING,
-    NVDSINFER_LOG_INFO,
-    NVDSINFER_LOG_DEBUG,
+typedef enum
+{
+  NVDSINFER_LOG_ERROR = 0,
+  NVDSINFER_LOG_WARNING,
+  NVDSINFER_LOG_INFO,
+  NVDSINFER_LOG_DEBUG,
 } NvDsInferLogLevel;
 
 /**
@@ -263,7 +264,7 @@ typedef enum {
  * @return String name for the status. Memory is owned by the function. Callers
  *         should not free the pointer.
  */
-const char* NvDsInferStatus2Str(NvDsInferStatus status);
+const char * NvDsInferStatus2Str(NvDsInferStatus status);
 
 #ifdef __cplusplus
 }
@@ -278,10 +279,10 @@ const char* NvDsInferStatus2Str(NvDsInferStatus status);
  */
 typedef enum
 {
-    kSELECTOR_MIN = 0,
-    kSELECTOR_OPT,
-    kSELECTOR_MAX,
-    kSELECTOR_SIZE
+  kSELECTOR_MIN = 0,
+  kSELECTOR_OPT,
+  kSELECTOR_MAX,
+  kSELECTOR_SIZE
 } NvDsInferProfileSelector;
 
 /**
@@ -291,8 +292,8 @@ typedef enum
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 typedef struct
 {
-    int batchSize = 0;
-    NvDsInferDims dims = {0};
+  int batchSize = 0;
+  NvDsInferDims dims = {0};
 } NvDsInferBatchDims;
 #pragma GCC diagnostic pop
 
@@ -302,10 +303,8 @@ typedef struct
  */
 struct NvDsInferBatchDimsLayerInfo : NvDsInferLayerInfo
 {
-    NvDsInferBatchDims profileDims[kSELECTOR_SIZE];
+  NvDsInferBatchDims profileDims[kSELECTOR_SIZE];
 };
-
-#endif
 
 #endif
 

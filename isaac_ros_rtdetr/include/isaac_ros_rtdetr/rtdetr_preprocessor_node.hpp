@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,12 +23,9 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-
+#include "isaac_ros_common/cuda_stream.hpp"
 #include "isaac_ros_common/qos.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_publisher.hpp"
-#include "isaac_ros_managed_nitros/managed_nitros_subscriber.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_view.hpp"
-#include "isaac_ros_tensor_list_interfaces/msg/tensor_list.hpp"
+#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 
 namespace nvidia
 {
@@ -40,32 +37,32 @@ namespace rtdetr
 class RtDetrPreprocessorNode : public rclcpp::Node
 {
 public:
-  explicit RtDetrPreprocessorNode(const rclcpp::NodeOptions options = rclcpp::NodeOptions());
+  explicit RtDetrPreprocessorNode(const rclcpp::NodeOptions & options);
 
   ~RtDetrPreprocessorNode();
 
 private:
-  void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorListView & msg);
+  void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorList & msg);
 
   // QOS settings
-  rclcpp::QoS input_qos_;
-  rclcpp::QoS output_qos_;
-
-  // Subscription to input NitrosTensorList messages
-  std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosSubscriber<
-      nvidia::isaac_ros::nitros::NitrosTensorListView>> nitros_sub_;
-
-  // Publisher for output NitrosTensorList messages
-  std::shared_ptr<nvidia::isaac_ros::nitros::ManagedNitrosPublisher<
-      nvidia::isaac_ros::nitros::NitrosTensorList>> nitros_pub_;
-
+  const int16_t input_queue_size_;
+  const int16_t output_queue_size_;
   std::string input_image_tensor_name_{};
   std::string output_image_tensor_name_{};
   std::string output_size_tensor_name_{};
   int64_t image_height_{};
   int64_t image_width_{};
   bool use_max_dim_for_orig_size_{};
-  cudaStream_t stream_;
+  int64_t memory_pool_block_size_{1920 * 1200 * 4};
+  int64_t memory_pool_num_blocks_{40};
+
+  // Subscriber and publisher for input and output NitrosTensorList messages
+  rclcpp::Subscription<nvidia::isaac_ros::nitros::NitrosTensorList>::SharedPtr nitros_sub_;
+  rclcpp::Publisher<nvidia::isaac_ros::nitros::NitrosTensorList>::SharedPtr nitros_pub_;
+
+  // CUDA Resources
+  ::nvidia::isaac_ros::common::CudaStreamPtr cuda_stream_;
+  nvidia::isaac_ros::nitros::CUDAMemoryPool pool_;
 };
 
 }  // namespace rtdetr

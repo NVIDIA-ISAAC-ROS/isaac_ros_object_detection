@@ -84,7 +84,7 @@ def generate_test_description():
             'network_image_height': '480',
             'image_mean': '[0.485, 0.456, 0.406]',
             'image_stddev': '[0.229, 0.224, 0.225]',
-            'final_tensor_name': 'images',
+            'tensor_name': 'images',
             'attach_to_shared_component_container': 'True',
             'component_container_name': 'grounding_dino_container',
             'dnn_image_encoder_namespace': IsaacROSGroundingDINOPOLTest.generate_namespace(),
@@ -108,6 +108,9 @@ def generate_test_description():
         package='isaac_ros_grounding_dino',
         plugin='nvidia::isaac_ros::grounding_dino::GroundingDinoPreprocessorNode',
         namespace=IsaacROSGroundingDINOPOLTest.generate_namespace(),
+        parameters=[{
+            'input_image_tensor_name': 'images',
+        }],
         remappings=[('image_tensor', 'input_image_tensor')],
     )
 

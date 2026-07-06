@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 
 #include <Eigen/Dense>
 #include <cmath>
+#include <stdexcept>
+#include <vector>
 
 #include "isaac_ros_common/cuda_stream.hpp"
 
@@ -37,14 +39,19 @@ constexpr const char kDefaultQoS[] = "DEFAULT";   // Default QoS profile
 
 template<typename T>
 std::vector<T> TensorToVector(
-  const Nitros::NitrosTensorListView & tensor_list,
+  const Nitros::NitrosTensorList & tensor_list,
   const std::string & tensor_name, cudaStream_t stream)
 {
-  auto tensor = tensor_list.GetNamedTensor(tensor_name);
-  std::vector<T> vector(tensor.GetElementCount());
+  auto tensor_ptr = tensor_list.get_tensor_by_name(tensor_name);
+  if (tensor_ptr == nullptr) {
+    RCLCPP_ERROR(rclcpp::get_logger("GroundingDinoDecoderNode"), "Tensor is not found");
+    throw std::runtime_error("Tensor(" + tensor_name + ") is not found");
+  }
+  const auto & tensor = *tensor_ptr;
+  std::vector<T> vector(tensor.element_count());
   cudaMemcpyAsync(
-    vector.data(), tensor.GetBuffer(),
-    tensor.GetTensorSize(), cudaMemcpyDefault, stream);
+    vector.data(), tensor.get_read_handle(stream).get_ptr(),
+    tensor.tensor_size(), cudaMemcpyDefault, stream);
   return vector;
 }
 
@@ -70,30 +77,31 @@ Eigen::MatrixXf GetScores(
 
 }  // namespace
 
-GroundingDinoDecoderNode::GroundingDinoDecoderNode(const rclcpp::NodeOptions options)
+GroundingDinoDecoderNode::GroundingDinoDecoderNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("grounding_dino_decoder_node", options),
-  input_qos_{::isaac_ros::common::AddQosParameter(*this, kDefaultQoS, "input_qos")},
-  output_qos_{::isaac_ros::common::AddQosParameter(*this, kDefaultQoS, "output_qos")},
-  tensor_sub_{std::make_shared<Nitros::ManagedNitrosSubscriber<Nitros::NitrosTensorListView>>(
-      this,
-      "tensor_sub",
-      Nitros::nitros_tensor_list_nchw_rgb_f32_t::supported_type_name,
-      std::bind(&GroundingDinoDecoderNode::TensorCallback, this, std::placeholders::_1),
-      Nitros::NitrosDiagnosticsConfig{}, input_qos_)},
-  pub_{create_publisher<vision_msgs::msg::Detection2DArray>("detections_output", output_qos_)},
+  input_qos_(::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "input_qos").keep_last(10)),
+  output_qos_(::isaac_ros::common::AddQosParameter(*this, "DEFAULT", "output_qos").keep_last(10)),
   boxes_tensor_name_{declare_parameter<std::string>("boxes_tensor_name", "boxes")},
   scores_tensor_name_{declare_parameter<std::string>("scores_tensor_name", "scores")},
   confidence_threshold_{declare_parameter<double>("confidence_threshold", 0.5)},
   image_width_{static_cast<int>(declare_parameter<int64_t>("image_width", 640))},
   image_height_{static_cast<int>(declare_parameter<int64_t>("image_height", 480))}
 {
-  CHECK_CUDA_ERROR(
-    ::nvidia::isaac_ros::common::initNamedCudaStream(
-      stream_, "isaac_ros_grounding_dino_decoder_node"),
-    "Error initializing CUDA stream");
+  cuda_stream_ = ::nvidia::isaac_ros::common::createCudaStream("GroundingDinoDecoderNode");
 
   // Create callback groups
   service_callback_group_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+  rclcpp::SubscriptionOptions sub_options;
+  sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  rclcpp::PublisherOptions pub_options;
+  pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  tensor_sub_ = create_subscription<nvidia::isaac_ros::nitros::NitrosTensorList>(
+    "tensor_sub", input_qos_,
+    std::bind(&GroundingDinoDecoderNode::TensorCallback, this, std::placeholders::_1),
+    sub_options);
+  pub_ = create_publisher<vision_msgs::msg::Detection2DArray>("detections_output", output_qos_,
+    pub_options);
 
   // Create service server for SyncDataWithDecoder
   sync_data_service_ =
@@ -106,10 +114,7 @@ GroundingDinoDecoderNode::GroundingDinoDecoderNode(const rclcpp::NodeOptions opt
     service_callback_group_);
 }
 
-GroundingDinoDecoderNode::~GroundingDinoDecoderNode()
-{
-  cudaStreamDestroy(stream_);
-}
+GroundingDinoDecoderNode::~GroundingDinoDecoderNode() {}
 
 void GroundingDinoDecoderNode::SyncDataWithDecoderCallback(
   const std::shared_ptr<isaac_ros_grounding_dino_interfaces::srv::SyncDataWithDecoder::Request>
@@ -133,7 +138,7 @@ void GroundingDinoDecoderNode::SyncDataWithDecoderCallback(
 }
 
 void GroundingDinoDecoderNode::TensorCallback(
-  const Nitros::NitrosTensorListView & tensor_msg)
+  const nvidia::isaac_ros::nitros::NitrosTensorList::ConstSharedPtr & tensor_msg)
 {
   std::lock_guard<std::mutex> lock(mutex_);
   if (!class_ids_.has_value()) {
@@ -147,9 +152,11 @@ void GroundingDinoDecoderNode::TensorCallback(
   }
 
   // Bring pred_logits and pred_boxes back to CPU
-  auto pred_logits = TensorToVector<float>(tensor_msg, scores_tensor_name_, stream_);
-  auto pred_boxes = TensorToVector<float>(tensor_msg, boxes_tensor_name_, stream_);
-  cudaStreamSynchronize(stream_);
+  auto pred_logits = TensorToVector<float>(*tensor_msg, scores_tensor_name_,
+    *cuda_stream_);
+  auto pred_boxes = TensorToVector<float>(*tensor_msg, boxes_tensor_name_,
+    *cuda_stream_);
+  cudaStreamSynchronize(*cuda_stream_);
 
   // Extract number of labels from pos_maps
   int num_labels = pos_maps_.value().shape.dims[0];
@@ -191,9 +198,9 @@ void GroundingDinoDecoderNode::TensorCallback(
 
   // Create output message
   vision_msgs::msg::Detection2DArray detections;
-  detections.header.stamp.sec = tensor_msg.GetTimestampSeconds();
-  detections.header.stamp.nanosec = tensor_msg.GetTimestampNanoseconds();
-  detections.header.frame_id = tensor_msg.GetFrameId();
+  detections.header.stamp.sec = tensor_msg->get_timestamp_sec();
+  detections.header.stamp.nanosec = tensor_msg->get_timestamp_nsec();
+  detections.header.frame_id = tensor_msg->get_frame_id();
 
   // Iterate through all query-label combinations
   for (int query_idx = 0; query_idx < kNumQueries; ++query_idx) {

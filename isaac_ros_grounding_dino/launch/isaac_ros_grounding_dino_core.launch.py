@@ -143,6 +143,7 @@ class IsaacROSGroundingDinoLaunchFragment(IsaacROSLaunchFragment):
                 plugin='nvidia::isaac_ros::grounding_dino::GroundingDinoPreprocessorNode',
                 parameters=[{
                     'default_prompt': 'trash can on the left.person to the right.plastic bag.',
+                    'input_image_tensor_name': 'images',
                 }],
                 remappings=[
                     ('image_tensor', 'reshaped_tensor')

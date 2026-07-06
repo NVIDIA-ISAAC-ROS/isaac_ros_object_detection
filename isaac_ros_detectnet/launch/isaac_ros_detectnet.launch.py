@@ -61,6 +61,7 @@ def generate_launch_description():
             'image_input_topic': '/image',
             'camera_info_input_topic': '/camera_info',
             'tensor_output_topic': '/tensor_pub',
+            'tensor_name': 'input_tensor',
         }.items(),
     )
 
