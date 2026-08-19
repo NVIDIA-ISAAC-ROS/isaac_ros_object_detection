@@ -29,6 +29,7 @@ Proof-Of-Life test for the Isaac ROS YOLOV8 Decoder Node package.
 
 import os
 import pathlib
+import tempfile
 import time
 
 from isaac_ros_test import IsaacROSBaseTest, JSONConversion
@@ -46,7 +47,8 @@ _TEST_CASE_NAMESPACE = 'yolov8_decoder_node_test'
 MODEL_FILE_NAME = 'dummy_yolov8s.onnx'
 MODEL_GENERATION_TIMEOUT_SEC = 300
 INIT_WAIT_SEC = 10
-engine_file_path = '/tmp/dummy_yolov8s.plan'
+engine_file_path = os.path.join(
+    os.environ.get('TEST_TMPDIR') or tempfile.gettempdir(), 'dummy_yolov8s.plan')
 input_tensor_names = ['input_tensor']
 input_binding_names = ['images']
 output_tensor_names = ['output_tensor']
