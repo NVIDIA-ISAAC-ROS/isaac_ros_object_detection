@@ -20,26 +20,18 @@
 from enum import Enum
 
 from isaac_ros_grounding_dino_interfaces.srv import GetTextTokens
-from isaac_ros_tensor_list_interfaces.msg import Tensor
 import numpy as np
 import rclpy
 from rclpy.node import Node
+from tensor_msgs.msg import ExperimentalTensor
 from transformers import AutoTokenizer
 
 MAX_TEXT_LENGTH = 256
 
 
 class TensorType(Enum):
-    INT8 = 1
-    UINT8 = 2
-    INT16 = 3
-    UINT16 = 4
-    INT32 = 5
-    UINT32 = 6
-    INT64 = 7
-    UINT64 = 8
-    FLOAT32 = 9
-    FLOAT64 = 10
+    INT64 = (0, 64)
+    UINT8 = (1, 8)
 
 
 class GroundingDinoTextTokenizer(Node):
@@ -54,7 +46,7 @@ class GroundingDinoTextTokenizer(Node):
             self.tokenizer = AutoTokenizer.from_pretrained(
                 'bert-base-uncased', local_files_only=True)
         except OSError:
-            self.get_logger().warn(
+            self.get_logger().warning(
                 'Tokenizer not found in local cache. Fetching model from the Hugging Face Hub.')
             try:
                 self.tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
@@ -145,14 +137,15 @@ class GroundingDinoTextTokenizer(Node):
             class_ids,
         )
 
-    def create_tensor_msg(self, data, name, data_type):
+    def create_tensor_msg(self, data, tensor_type):
         """Create a Tensor message from numpy tensor data."""
-        tensor_msg = Tensor()
-        tensor_msg.name = name
-        tensor_msg.data_type = data_type
+        tensor_msg = ExperimentalTensor()
+        tensor_msg.dtype_code, tensor_msg.dtype_bits = tensor_type.value
+        tensor_msg.dtype_lanes = 1
+        tensor_msg.shape = list(data.shape)
+        tensor_msg.strides = []
+        tensor_msg.byte_offset = 0
         tensor_msg.data = data.tobytes()
-        tensor_msg.shape.rank = len(data.shape)
-        tensor_msg.shape.dims = list(data.shape)
         return tensor_msg
 
     def get_text_tokens_callback(self, request, response):
@@ -163,12 +156,12 @@ class GroundingDinoTextTokenizer(Node):
                         'position_ids', 'text_token_mask']
         tensor_types = [TensorType.INT64, TensorType.UINT8, TensorType.INT64,
                         TensorType.INT64, TensorType.UINT8]
+        response.text_tensors.names = tensor_names
         response.text_tensors.tensors = [
-            self.create_tensor_msg(data, name, dtype.value)
-            for data, name, dtype in zip(text_tensors, tensor_names, tensor_types)]
+            self.create_tensor_msg(data, dtype)
+            for data, dtype in zip(text_tensors, tensor_types)]
 
-        response.pos_maps = self.create_tensor_msg(
-            pos_maps, 'pos_maps', TensorType.UINT8.value)
+        response.pos_maps = self.create_tensor_msg(pos_maps, TensorType.UINT8)
 
         response.class_ids = class_ids
 

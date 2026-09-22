@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <!--
-SPDX-FileCopyrightText: Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_rtdetr</name>
-  <version>4.6.0</version>
+  <version>5.0.0</version>
   <description>RT-DETR model processing</description>
 
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
@@ -34,8 +34,9 @@ SPDX-License-Identifier: Apache-2.0
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
   <depend>vision_msgs</depend>
-  <depend>isaac_ros_nitros_tensor_list_type</depend>
-  <depend>isaac_ros_tensor_list_interfaces</depend>
+  <depend>cuda_buffer</depend>
+  <depend>isaac_ros_tensor_msgs</depend>
+  <depend>tensor_msgs</depend>
   <depend>isaac_ros_rtdetr_models_install</depend>
 
   <build_depend>isaac_ros_common</build_depend>
@@ -48,7 +49,9 @@ SPDX-License-Identifier: Apache-2.0
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>isaac_ros_test</test_depend>
+  <test_depend>python3-torch-pip-shim</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

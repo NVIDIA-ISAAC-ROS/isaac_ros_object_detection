@@ -49,6 +49,9 @@ endif()
 
 # GroundingDinoPreprocessorNode
 ament_auto_add_library(grounding_dino_preprocessor_node SHARED src/grounding_dino_preprocessor_node.cpp)
+target_link_libraries(grounding_dino_preprocessor_node
+  CUDA::cudart
+)
 set_target_properties(grounding_dino_preprocessor_node PROPERTIES
   BUILD_WITH_INSTALL_RPATH TRUE
   BUILD_RPATH_USE_ORIGIN TRUE
@@ -60,7 +63,10 @@ set(node_plugins
 
 # GroundingDinoDecoderNode
 ament_auto_add_library(grounding_dino_decoder_node SHARED src/grounding_dino_decoder_node.cpp)
-target_link_libraries(grounding_dino_decoder_node Eigen3::Eigen)
+target_link_libraries(grounding_dino_decoder_node
+  Eigen3::Eigen
+  CUDA::cudart
+)
 rclcpp_components_register_nodes(grounding_dino_decoder_node "nvidia::isaac_ros::grounding_dino::GroundingDinoDecoderNode")
 set(node_plugins
   "${node_plugins}nvidia::isaac_ros::grounding_dino::GroundingDinoDecoderNode;"

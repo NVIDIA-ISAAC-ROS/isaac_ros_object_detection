@@ -18,7 +18,7 @@
 """
 Proof-Of-Life test for the Isaac ROS DetectNet package.
 
-    1. Sets up DnnImageEncoderNode, TensorRTNode, DetectNetDecoderNode
+    1. Sets up the DNN image encoder launch graph, TensorRTNode, DetectNetDecoderNode
     2. Loads a sample image and publishes it
     3. Subscribes to the relevant topics, waiting for an output from DetectNetDecoderNode
     4. Verifies that the received output sizes and encodings are correct (based on dummy model)
@@ -139,6 +139,7 @@ def generate_test_description():
             'input_image_height': '368',
             'network_image_width': '640',
             'network_image_height': '368',
+            'input_encoding': 'bgr8',
             'attach_to_shared_component_container': 'True',
             'component_container_name': 'detectnet_container',
             'dnn_image_encoder_namespace': IsaacROSDetectNetPipelineTest.generate_namespace(
@@ -159,10 +160,8 @@ def generate_test_description():
             'model_repository_paths': [MODEL_DIR_PATH],
             'input_tensor_names': ['input_tensor'],
             'input_binding_names': ['input_1:0'],
-            'input_tensor_formats': ['nitros_tensor_list_nchw_rgb_f32'],
             'output_tensor_names': ['output_cov', 'output_bbox'],
             'output_binding_names': ['output_cov/Sigmoid:0', 'output_bbox/BiasAdd:0'],
-            'output_tensor_formats': ['nitros_tensor_list_nhwc_rgb_f32'],
             'log_level': 0
         }])
 

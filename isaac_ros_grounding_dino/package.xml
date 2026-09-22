@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_grounding_dino</name>
-  <version>4.6.0</version>
+  <version>5.0.0</version>
   <description>Grounding DINO model processing</description>
 
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
@@ -32,13 +32,13 @@ SPDX-License-Identifier: Apache-2.0
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
 
   <depend>eigen</depend>
+  <depend>cuda_buffer</depend>
   <depend>isaac_ros_grounding_dino_interfaces</depend>
-  <depend>isaac_ros_nitros_bridge_interfaces</depend>
-  <depend>isaac_ros_nitros_tensor_list_type</depend>
-  <depend>isaac_ros_tensor_list_interfaces</depend>
+  <depend>isaac_ros_tensor_msgs</depend>
   <depend>message_filters</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
+  <depend>tensor_msgs</depend>
   <depend>vision_msgs</depend>
   <depend>isaac_ros_grounding_dino_models_install</depend>
 
@@ -48,11 +48,13 @@ SPDX-License-Identifier: Apache-2.0
   <exec_depend>isaac_ros_dnn_image_encoder</exec_depend>
   <exec_depend>isaac_ros_image_proc</exec_depend>
   <exec_depend>isaac_ros_tensor_rt</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
   <exec_depend>python3-transformers-pip-shim</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <test_depend>isaac_ros_test</test_depend>
+  <test_depend>python3-torch-pip-shim</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

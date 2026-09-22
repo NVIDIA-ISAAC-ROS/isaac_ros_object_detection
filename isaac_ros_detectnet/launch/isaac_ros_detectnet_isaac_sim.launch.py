@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -90,10 +90,8 @@ def generate_launch_description():
             'model_repository_paths': [model_dir_path],
             'input_tensor_names': ['input_tensor'],
             'input_binding_names': ['input_1:0'],
-            'input_tensor_formats': ['nitros_tensor_list_nchw_rgb_f32'],
             'output_tensor_names': ['output_cov', 'output_bbox'],
             'output_binding_names': ['output_cov/Sigmoid:0', 'output_bbox/BiasAdd:0'],
-            'output_tensor_formats': ['nitros_tensor_list_nhwc_rgb_f32'],
             'log_level': 0
         }])
 
@@ -121,7 +119,11 @@ def generate_launch_description():
         package='isaac_ros_detectnet',
         executable='isaac_ros_detectnet_visualizer.py',
         name='detectnet_visualizer',
-        remappings=[('image', 'detectnet_encoder/resize/image')]
+        parameters=[{
+            'network_image_width': DETECTNET_DEFAULT_WIDTH,
+            'network_image_height': DETECTNET_DEFAULT_HEIGHT,
+        }],
+        remappings=[('image', 'front_stereo_camera/left/image_rect_color')]
     )
 
     rqt_image_view_node = Node(

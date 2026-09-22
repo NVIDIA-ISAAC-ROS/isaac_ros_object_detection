@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,9 +32,9 @@ def generate_launch_description():
     """Generate launch description for testing relevant nodes."""
     isaac_ros_ws_path = os.environ.get('ISAAC_ROS_WS', '')
     model_dir_path = os.path.join(isaac_ros_ws_path,
-                                  'isaac_ros_assets/isaac_ros_detectnet/models')
+                                  'isaac_ros_assets/models/triton')
     # Read labels from text file
-    labels_file_path = f'{model_dir_path}/detectnet/1/labels.txt'
+    labels_file_path = f'{model_dir_path}/peoplenet/1/labels.txt'
     with open(labels_file_path, 'r') as fd:
         label_list = fd.read().strip().splitlines()
     launch_dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -70,14 +70,12 @@ def generate_launch_description():
         package='isaac_ros_triton',
         plugin='nvidia::isaac_ros::dnn_inference::TritonNode',
         parameters=[{
-            'model_name': 'detectnet',
+            'model_name': 'peoplenet',
             'model_repository_paths': [model_dir_path],
             'input_tensor_names': ['input_tensor'],
             'input_binding_names': ['input_1:0'],
-            'input_tensor_formats': ['nitros_tensor_list_nchw_rgb_f32'],
             'output_tensor_names': ['output_cov', 'output_bbox'],
             'output_binding_names': ['output_cov/Sigmoid:0', 'output_bbox/BiasAdd:0'],
-            'output_tensor_formats': ['nitros_tensor_list_nhwc_rgb_f32'],
             'log_level': 0
         }])
 

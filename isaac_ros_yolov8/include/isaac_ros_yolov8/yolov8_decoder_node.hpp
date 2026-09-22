@@ -21,12 +21,11 @@
 #include <memory>
 #include <string>
 
+#include "isaac_ros_common/cuda_stream.hpp"
+#include "isaac_ros_tensor_msgs/msg/tensor_list.hpp"
 #include "rclcpp/rclcpp.hpp"
-
-#include "std_msgs/msg/string.hpp"
+#include "tensor_msgs/msg/experimental_tensor.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
-
 
 #include "cuda_runtime.h"  // NOLINT
 
@@ -37,6 +36,9 @@ namespace isaac_ros
 namespace yolov8
 {
 
+using Tensor = tensor_msgs::msg::ExperimentalTensor;
+using TensorList = isaac_ros_tensor_msgs::msg::TensorList;
+
 class YoloV8DecoderNode : public rclcpp::Node
 {
 public:
@@ -45,10 +47,8 @@ public:
   ~YoloV8DecoderNode();
 
 private:
-  void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorList::ConstSharedPtr msg);
+  void InputCallback(const TensorList::ConstSharedPtr msg);
 
-  int64_t memory_pool_block_size_{};
-  int64_t memory_pool_num_blocks_{};
   int16_t input_queue_size_{};
   int16_t output_queue_size_{};
   std::string tensor_name_{};
@@ -57,10 +57,8 @@ private:
   double nms_threshold_{};
   int64_t num_classes_{};
 
-  // NITROS subscriber for input tensors
-  rclcpp::Subscription<nvidia::isaac_ros::nitros::NitrosTensorList>::SharedPtr nitros_sub_;
+  rclcpp::Subscription<TensorList>::SharedPtr tensor_sub_;
 
-  // NITROS publisher for output tensors
   rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr pub_;
 
   // CUDA resources

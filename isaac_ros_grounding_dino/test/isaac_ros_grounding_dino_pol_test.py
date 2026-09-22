@@ -82,6 +82,7 @@ def generate_test_description():
             'input_image_height': '480',
             'network_image_width': '640',
             'network_image_height': '480',
+            'input_encoding': 'bgr8',
             'image_mean': '[0.485, 0.456, 0.406]',
             'image_stddev': '[0.229, 0.224, 0.225]',
             'tensor_name': 'images',

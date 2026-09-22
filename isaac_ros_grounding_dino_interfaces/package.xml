@@ -21,7 +21,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_grounding_dino_interfaces</name>
-  <version>4.6.0</version>
+  <version>5.0.0</version>
   <description>Interfaces for Isaac ROS Grounding DINO</description>
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
   <license>Apache-2.0</license>
@@ -33,8 +33,9 @@
   <build_depend>isaac_ros_common</build_depend>
   <build_depend>rosidl_default_generators</build_depend>
 
-  <depend>isaac_ros_tensor_list_interfaces</depend>
+  <depend>isaac_ros_tensor_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>tensor_msgs</depend>
 
   <exec_depend>rosidl_default_runtime</exec_depend>
 

@@ -7,7 +7,7 @@ string[] class_ids
 
 # Positive map tensor for matching output bounding boxes to 
 # corresponding class IDs
-isaac_ros_tensor_list_interfaces/Tensor pos_maps
+tensor_msgs/ExperimentalTensor pos_maps
 
 ---
 # Response

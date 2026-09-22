@@ -16,11 +16,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "isaac_ros_rtdetr/rtdetr_decoder_node.hpp"
+#include "isaac_ros_rtdetr/rtdetr_decoder_utils.hpp"
 
+#include <cstdint>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
+#include "cuda_buffer/cuda_buffer_api.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
+#include "isaac_ros_tensor_msgs/tensor_utils.hpp"
 
 namespace nvidia
 {
@@ -31,20 +36,65 @@ namespace rtdetr
 namespace
 {
 
+size_t ElementCount(const Tensor & tensor)
+{
+  size_t count = 1;
+  for (const int64_t dim : tensor.shape) {
+    if (dim < 0) {
+      throw std::invalid_argument("[RtDetrDecoderNode] Negative tensor dimension");
+    }
+    const size_t extent = static_cast<size_t>(dim);
+    if (extent != 0 && count > std::numeric_limits<size_t>::max() / extent) {
+      throw std::overflow_error("[RtDetrDecoderNode] Tensor element count overflow");
+    }
+    count *= extent;
+  }
+  return count;
+}
+
 template<typename T>
 std::vector<T> TensorToVector(
-  const nvidia::isaac_ros::nitros::NitrosTensorList & tensor_list,
-  const std::string & tensor_name, cudaStream_t stream)
+  const TensorList & tensor_list, const std::string & tensor_name,
+  uint8_t expected_dtype_code, uint8_t expected_dtype_bits, cudaStream_t stream)
 {
-  auto tensor_ptr = tensor_list.get_tensor_by_name(tensor_name);
+  const Tensor * tensor_ptr =
+    isaac_ros_tensor_msgs::FindTensorByName(tensor_list, tensor_name);
   if (tensor_ptr == nullptr) {
-    RCLCPP_ERROR(rclcpp::get_logger("RtDetrDecoderNode"), "Tensor is not found");
-    throw std::runtime_error("Tensor(" + tensor_name + ") is not found");
+    throw std::runtime_error("[RtDetrDecoderNode] Tensor '" + tensor_name + "' is not found");
   }
-  std::vector<T> vector(tensor_ptr->element_count());
-  cudaMemcpyAsync(
-    vector.data(), tensor_ptr->get_read_handle(stream).get_ptr(),
-    tensor_ptr->tensor_size(), cudaMemcpyDefault, stream);
+  if (tensor_ptr->dtype_code != expected_dtype_code ||
+    tensor_ptr->dtype_bits != expected_dtype_bits || tensor_ptr->dtype_lanes != 1)
+  {
+    throw std::invalid_argument(
+            "[RtDetrDecoderNode] Tensor '" + tensor_name + "' has an unexpected data type");
+  }
+
+  const size_t element_count = ElementCount(*tensor_ptr);
+  if (element_count > std::numeric_limits<size_t>::max() / sizeof(T)) {
+    throw std::overflow_error("[RtDetrDecoderNode] Tensor byte size overflow");
+  }
+  const size_t byte_count = element_count * sizeof(T);
+  if (tensor_ptr->byte_offset > tensor_ptr->data.size() ||
+    byte_count > tensor_ptr->data.size() - static_cast<size_t>(tensor_ptr->byte_offset))
+  {
+    throw std::invalid_argument(
+            "[RtDetrDecoderNode] Tensor '" + tensor_name + "' data buffer is too small");
+  }
+
+  std::vector<T> vector(element_count);
+  if (byte_count == 0) {
+    return vector;
+  }
+
+  auto input_handle = cuda_buffer_backend::from_input_buffer(tensor_ptr->data, stream);
+  const cudaError_t err = cudaMemcpyAsync(
+    vector.data(), input_handle.get_ptr() + tensor_ptr->byte_offset,
+    byte_count, cudaMemcpyDeviceToHost, stream);
+  if (err != cudaSuccess) {
+    throw std::runtime_error(
+            std::string("[RtDetrDecoderNode] Failed to copy tensor '") + tensor_name +
+            "': " + cudaGetErrorString(err));
+  }
   return vector;
 }
 
@@ -52,7 +102,6 @@ std::vector<T> TensorToVector(
 
 RtDetrDecoderNode::RtDetrDecoderNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("rtdetr_decoder_node", options),
-  // This function sets the QoS parameter for publishers and subscribers setup by this NITROS node
   input_queue_size_(declare_parameter<int16_t>("input_queue_size", 10)),
   output_queue_size_(declare_parameter<int16_t>("output_queue_size", 10)),
   labels_tensor_name_{declare_parameter<std::string>(
@@ -76,9 +125,10 @@ RtDetrDecoderNode::RtDetrDecoderNode(const rclcpp::NodeOptions & options)
   // Create subscribers for input and output tensors
   rclcpp::SubscriptionOptions sub_options;
   sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  sub_options.acceptable_buffer_backends = "any";
   rclcpp::PublisherOptions pub_options;
   pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
-  nitros_sub_ = create_subscription<nvidia::isaac_ros::nitros::NitrosTensorList>(
+  tensor_sub_ = create_subscription<TensorList>(
     "tensor_sub", input_qos,
     std::bind(&RtDetrDecoderNode::InputCallback, this, std::placeholders::_1),
     sub_options);
@@ -91,24 +141,44 @@ RtDetrDecoderNode::RtDetrDecoderNode(const rclcpp::NodeOptions & options)
 RtDetrDecoderNode::~RtDetrDecoderNode() {}
 
 void RtDetrDecoderNode::InputCallback(
-  const nvidia::isaac_ros::nitros::NitrosTensorList & msg)
+  const TensorList::ConstSharedPtr msg)
 {
   RCLCPP_DEBUG(get_logger(), "[RtDetrDecoderNode] InputCallback called");
 
-  // Bring labels, boxes, and scores back to CPU
-  auto labels = TensorToVector<int64_t>(msg, labels_tensor_name_, *cuda_stream_);
-  auto boxes = TensorToVector<float>(msg, boxes_tensor_name_, *cuda_stream_);
-  auto scores = TensorToVector<float>(msg, scores_tensor_name_, *cuda_stream_);
-  CHECK_CUDA_ERROR(cudaStreamSynchronize(*cuda_stream_),
-    "[RtDetrDecoderNode] Failed to synchronize CUDA stream");
+  constexpr uint8_t kDLPackInt = 0;
+  constexpr uint8_t kDLPackFloat = 2;
+  std::vector<int64_t> labels;
+  std::vector<float> boxes;
+  std::vector<float> scores;
+  try {
+    labels = TensorToVector<int64_t>(
+      *msg, labels_tensor_name_, kDLPackInt, 64, *cuda_stream_);
+    boxes = TensorToVector<float>(
+      *msg, boxes_tensor_name_, kDLPackFloat, 32, *cuda_stream_);
+    scores = TensorToVector<float>(
+      *msg, scores_tensor_name_, kDLPackFloat, 32, *cuda_stream_);
+    const cudaError_t err = cudaStreamSynchronize(*cuda_stream_);
+    if (err != cudaSuccess) {
+      throw std::runtime_error(
+              std::string("[RtDetrDecoderNode] Failed to synchronize CUDA stream: ") +
+              cudaGetErrorString(err));
+    }
+  } catch (const std::exception & error) {
+    RCLCPP_ERROR(get_logger(), "%s", error.what());
+    return;
+  }
 
-  std_msgs::msg::Header header{};
-  header.stamp.sec = msg.get_timestamp_sec();
-  header.stamp.nanosec = msg.get_timestamp_nsec();
-  header.frame_id = msg.get_frame_id();
+  if (!AreOutputTensorSizesValid(labels.size(), boxes.size(), scores.size())) {
+    RCLCPP_ERROR(
+      get_logger(),
+      "Output tensor size mismatch: labels=%zu, boxes=%zu, scores=%zu; expected one label "
+      "and %zu box elements per score",
+      labels.size(), boxes.size(), scores.size(), kBoundingBoxElementCount);
+    return;
+  }
 
   vision_msgs::msg::Detection2DArray detections;
-  detections.header = header;
+  detections.header = msg->header;
 
   for (size_t i = 0; i < scores.size(); ++i) {
     // Filter out low-confidence detections
@@ -117,7 +187,7 @@ void RtDetrDecoderNode::InputCallback(
     }
 
     vision_msgs::msg::Detection2D detection;
-    detection.header = header;
+    detection.header = msg->header;
 
     // Save score and label
     vision_msgs::msg::ObjectHypothesisWithPose hyp;
@@ -127,11 +197,10 @@ void RtDetrDecoderNode::InputCallback(
 
     // Convert (x1, y1, x2, y2) format into (cx, cy, w, h)
     // Each bounding box is stored as 4 contiguous numbers
-    constexpr size_t BOX_SIZE = 4;
-    float x1 = boxes.at(BOX_SIZE * i);
-    float y1 = boxes.at(BOX_SIZE * i + 1);
-    float x2 = boxes.at(BOX_SIZE * i + 2);
-    float y2 = boxes.at(BOX_SIZE * i + 3);
+    float x1 = boxes.at(kBoundingBoxElementCount * i);
+    float y1 = boxes.at(kBoundingBoxElementCount * i + 1);
+    float x2 = boxes.at(kBoundingBoxElementCount * i + 2);
+    float y2 = boxes.at(kBoundingBoxElementCount * i + 3);
 
     detection.bbox.center.position.x = (x1 + x2) / 2;
     detection.bbox.center.position.y = (y1 + y2) / 2;

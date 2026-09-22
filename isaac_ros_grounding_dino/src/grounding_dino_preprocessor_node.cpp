@@ -17,14 +17,15 @@
 
 #include "isaac_ros_grounding_dino/grounding_dino_preprocessor_node.hpp"
 
-#include <unordered_map>
+#include <limits>
+#include <stdexcept>
+#include <string>
+#include <utility>
 
+#include "cuda_buffer/cuda_buffer_api.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
 #include "isaac_ros_grounding_dino_interfaces/srv/sync_data_with_decoder.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_builder.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list_builder.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
-#include "std_msgs/msg/header.hpp"
+#include "isaac_ros_tensor_msgs/tensor_utils.hpp"
 
 namespace nvidia
 {
@@ -32,6 +33,60 @@ namespace isaac_ros
 {
 namespace grounding_dino
 {
+namespace
+{
+
+size_t TensorElementSize(const Tensor & tensor)
+{
+  if (tensor.dtype_bits == 0 || tensor.dtype_lanes == 0) {
+    throw std::invalid_argument(
+            "[GroundingDinoPreprocessorNode] Tensor dtype bits and lanes must be positive");
+  }
+  const size_t bit_count =
+    static_cast<size_t>(tensor.dtype_bits) * static_cast<size_t>(tensor.dtype_lanes);
+  return (bit_count + 7) / 8;
+}
+
+void ValidateTensorBuffer(const Tensor & tensor)
+{
+  if (tensor.data.empty()) {
+    throw std::invalid_argument(
+            "[GroundingDinoPreprocessorNode] Tensor data buffer is empty");
+  }
+  const size_t storage_count = isaac_ros_tensor_msgs::RequiredStorageElements(tensor);
+  const size_t element_size = TensorElementSize(tensor);
+  if (storage_count > std::numeric_limits<size_t>::max() / element_size) {
+    throw std::overflow_error("[GroundingDinoPreprocessorNode] Tensor byte size overflow");
+  }
+  const size_t byte_count = storage_count * element_size;
+  if (tensor.byte_offset > tensor.data.size() ||
+    byte_count > tensor.data.size() - static_cast<size_t>(tensor.byte_offset))
+  {
+    throw std::invalid_argument(
+            "[GroundingDinoPreprocessorNode] Tensor data buffer is too small");
+  }
+}
+
+Tensor CopyTensor(const Tensor & input, cudaStream_t stream)
+{
+  ValidateTensorBuffer(input);
+  Tensor output;
+  output.dtype_code = input.dtype_code;
+  output.dtype_bits = input.dtype_bits;
+  output.dtype_lanes = input.dtype_lanes;
+  output.shape = input.shape;
+  output.strides = input.strides;
+  output.byte_offset = input.byte_offset;
+  output.data = cuda_buffer_backend::allocate_buffer(input.data.size());
+
+  auto input_handle = cuda_buffer_backend::from_input_buffer(input.data, stream);
+  auto output_handle = cuda_buffer_backend::from_output_buffer(output.data, stream);
+  cuda_buffer_backend::to_buffer(
+    input_handle.get_ptr(), input.data.size(), output_handle, stream);
+  return output;
+}
+
+}  // namespace
 
 GroundingDinoPreprocessorNode::GroundingDinoPreprocessorNode(const rclcpp::NodeOptions & options)
 : rclcpp::Node("grounding_dino_preprocessor_node", options),
@@ -42,9 +97,7 @@ GroundingDinoPreprocessorNode::GroundingDinoPreprocessorNode(const rclcpp::NodeO
   default_prompt_{declare_parameter<std::string>("default_prompt", "")},
   service_call_timeout_{static_cast<int>(declare_parameter<int>("service_call_timeout", 5))},
   service_discovery_timeout_{static_cast<int>(declare_parameter<int>(
-      "service_discovery_timeout", 5))},
-  memory_pool_block_size_(declare_parameter<int64_t>("memory_pool_block_size", 1920 * 1200 * 4)),
-  memory_pool_num_blocks_(declare_parameter<int64_t>("memory_pool_num_blocks", 40))
+      "service_discovery_timeout", 5))}
 {
   const rclcpp::QoS input_qos = ::isaac_ros::common::AddQosParameter(
     *this, "DEFAULT", "input_qos").keep_last(input_queue_size_);
@@ -55,14 +108,15 @@ GroundingDinoPreprocessorNode::GroundingDinoPreprocessorNode(const rclcpp::NodeO
 
   rclcpp::SubscriptionOptions sub_options;
   sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  sub_options.acceptable_buffer_backends = "any";
   rclcpp::PublisherOptions pub_options;
   pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
 
-  image_nitros_sub_ = create_subscription<nvidia::isaac_ros::nitros::NitrosTensorList>(
+  image_tensor_sub_ = create_subscription<TensorList>(
     "image_tensor", input_qos,
     std::bind(&GroundingDinoPreprocessorNode::ImageCallback, this, std::placeholders::_1),
     sub_options);
-  tensor_pub_ = create_publisher<nvidia::isaac_ros::nitros::NitrosTensorList>("tensor_pub",
+  tensor_pub_ = create_publisher<TensorList>("tensor_pub",
     output_qos, pub_options);
 
   // Create callback groups
@@ -124,6 +178,10 @@ bool GroundingDinoPreprocessorNode::GetTextTokens(const std::string & prompt)
 
   auto response = future.get();
 
+  if (response->text_tensors.names.size() != response->text_tensors.tensors.size()) {
+    RCLCPP_ERROR(get_logger(), "Text tensor names and tensors must have the same size");
+    return false;
+  }
   text_tensors_ = response->text_tensors;
   pos_maps_ = response->pos_maps;
   class_ids_ = response->class_ids;
@@ -169,8 +227,13 @@ bool GroundingDinoPreprocessorNode::SyncDataWithDecoder()
 }
 
 void GroundingDinoPreprocessorNode::ImageCallback(
-  const nvidia::isaac_ros::nitros::NitrosTensorList::ConstSharedPtr & msg)
+  const TensorList::ConstSharedPtr & msg)
 {
+  if (msg->names.size() != msg->tensors.size()) {
+    RCLCPP_ERROR(get_logger(), "Image tensor names and tensors must have the same size");
+    return;
+  }
+
   // Use default prompt if no text tensors are cached
   if (!text_tensors_.has_value() || !pos_maps_.has_value()) {
     RCLCPP_INFO(get_logger(), "Setting default prompt: %s", default_prompt_.c_str());
@@ -178,88 +241,32 @@ void GroundingDinoPreprocessorNode::ImageCallback(
     return;
   }
 
-  // Forward header from input message
-  std_msgs::msg::Header header{};
-  header.stamp.sec = msg->get_timestamp_sec();
-  header.stamp.nanosec = msg->get_timestamp_nsec();
-  header.frame_id = msg->get_frame_id();
-
   // Process image tensor
-  auto image_tensor_ptr = msg->get_tensor_by_name(input_image_tensor_name_);
+  const Tensor * image_tensor_ptr =
+    isaac_ros_tensor_msgs::FindTensorByName(*msg, input_image_tensor_name_);
   if (image_tensor_ptr == nullptr) {
     RCLCPP_ERROR(get_logger(),
             "Image tensor '%s' is not found (set input_image_tensor_name to match upstream)",
       input_image_tensor_name_.c_str());
-    throw std::runtime_error("Image tensor '" + input_image_tensor_name_ + "' is not found");
+    return;
   }
 
-  const auto & image_tensor = *image_tensor_ptr;
-  if (!pool_.initialized()) {
-    const int64_t actual_block_size = std::max(
-      static_cast<int64_t>(image_tensor.tensor_size()), memory_pool_block_size_);
-    CHECK_CUDA_ERROR(pool_.create(
-      static_cast<size_t>(actual_block_size),
-      static_cast<size_t>(memory_pool_num_blocks_),
-      nvidia::isaac_ros::nitros::CUDAMemoryPool::MemoryType::Device),
-      "[GroundingDinoPreprocessorNode] Failed to create CUDA memory pool");
+  try {
+    TensorList output;
+    output.header = msg->header;
+    output.names.reserve(1 + text_tensors_->tensors.size());
+    output.tensors.reserve(1 + text_tensors_->tensors.size());
+    output.names.push_back("images");
+    output.tensors.push_back(CopyTensor(*image_tensor_ptr, *cuda_stream_));
+
+    for (size_t i = 0; i < text_tensors_->tensors.size(); ++i) {
+      output.names.push_back(text_tensors_->names[i]);
+      output.tensors.push_back(CopyTensor(text_tensors_->tensors[i], *cuda_stream_));
+    }
+    tensor_pub_->publish(std::move(output));
+  } catch (const std::exception & error) {
+    RCLCPP_ERROR(get_logger(), "%s", error.what());
   }
-
-  // Process text tensors
-  std::unordered_map<std::string, void *> gpu_buffers;
-  for (const auto & tensor : text_tensors_.value().tensors) {
-    void * gpu_buffer;
-    size_t tensor_size = tensor.data.size();
-    CHECK_CUDA_ERROR(
-      cudaMallocAsync(&gpu_buffer, tensor_size, *cuda_stream_),
-      "[GroundingDinoPreprocessorNode] Failed to allocate memory for tensor: %s",
-      tensor.name.c_str());
-    CHECK_CUDA_ERROR(cudaMemcpyAsync(
-      gpu_buffer, tensor.data.data(),
-      tensor_size, cudaMemcpyHostToDevice, *cuda_stream_),
-      "[GroundingDinoPreprocessorNode] Failed to copy data for tensor: %s", tensor.name.c_str());
-    gpu_buffers[tensor.name] = gpu_buffer;
-  }
-
-  // Create output image tensor
-  auto tensor_shape = image_tensor_ptr->shape();
-  nvidia::isaac_ros::nitros::NitrosTensorShape shape(tensor_shape);
-  nvidia::isaac_ros::nitros::NitrosTensor output_image_tensor;
-  auto image_write_handle = output_image_tensor.from_pool(
-    "images",
-    pool_,
-    shape,
-    nvidia::isaac_ros::nitros::NitrosDataType::kFloat32,
-    *cuda_stream_);
-
-  float * image_output_buffer = reinterpret_cast<float *>(image_write_handle.get_ptr());
-  CHECK_CUDA_ERROR(cudaMemcpyAsync(
-    image_output_buffer, image_tensor.get_read_handle(*cuda_stream_).get_ptr(),
-    image_tensor.tensor_size(), cudaMemcpyDefault, *cuda_stream_),
-    "[GroundingDinoPreprocessorNode] Failed to copy data for image tensor");
-
-  // Build output tensor list and add image tensor
-  auto output_tensor_builder =
-    nvidia::isaac_ros::nitros::NitrosTensorListBuilder().WithHeader(header);
-  output_tensor_builder.AddTensor("images", output_image_tensor);
-
-  // Add text tensors
-  for (const auto & tensor : text_tensors_.value().tensors) {
-    std::vector<int32_t> dims(tensor.shape.dims.begin(), tensor.shape.dims.end());
-    Nitros::NitrosTensorShape shape{dims};
-
-    auto nitros_tensor = Nitros::NitrosTensorBuilder()
-      .WithShape(shape)
-      .WithDataType(static_cast<nvidia::isaac_ros::nitros::NitrosDataType>(tensor.data_type))
-      .WithData(gpu_buffers[tensor.name])
-      .WithReleaseCallback([gpu_buffer = gpu_buffers[tensor.name], stream = *cuda_stream_]() {
-          cudaFreeAsync(gpu_buffer, stream);
-      })
-      .WithName(tensor.name)
-      .Build();
-    output_tensor_builder.AddTensor(tensor.name, nitros_tensor);
-  }
-
-  tensor_pub_->publish(output_tensor_builder.Build());
 }
 
 }  // namespace grounding_dino
