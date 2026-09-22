@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2024-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,17 +38,30 @@ endif()
 
 # RtDetrPreprocessorNode
 ament_auto_add_library(rtdetr_preprocessor_node SHARED src/rtdetr_preprocessor_node.cpp)
+target_link_libraries(rtdetr_preprocessor_node
+  CUDA::cudart
+)
 rclcpp_components_register_nodes(rtdetr_preprocessor_node "nvidia::isaac_ros::rtdetr::RtDetrPreprocessorNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::rtdetr::RtDetrPreprocessorNode;$<TARGET_FILE:rtdetr_preprocessor_node>\n")
 
 # RtDetrDecoderNode
 ament_auto_add_library(rtdetr_decoder_node SHARED src/rtdetr_decoder_node.cpp)
+target_link_libraries(rtdetr_decoder_node
+  CUDA::cudart
+)
 rclcpp_components_register_nodes(rtdetr_decoder_node "nvidia::isaac_ros::rtdetr::RtDetrDecoderNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::rtdetr::RtDetrDecoderNode;$<TARGET_FILE:rtdetr_decoder_node>\n")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(rtdetr_decoder_utils_test test/rtdetr_decoder_utils_test.cpp)
+  target_include_directories(rtdetr_decoder_utils_test PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  )
 
   # The FindPythonInterp and FindPythonLibs modules are removed
   if(POLICY CMP0148)

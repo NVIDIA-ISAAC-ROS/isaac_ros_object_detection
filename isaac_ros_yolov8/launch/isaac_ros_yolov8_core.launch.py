@@ -184,7 +184,7 @@ class IsaacROSYolov8LaunchFragment(IsaacROSLaunchFragment):
 
             'yolov8_encoder_launch': IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
-                    [os.path.join(encoder_dir, 'launch', 'dnn_image_encoder_nodes.launch.py')]
+                    [os.path.join(encoder_dir, 'launch', 'dnn_image_encoder.launch.py')]
                 ),
                 launch_arguments={
                     'input_image_width': str(interface_specs['camera_resolution']['width']),
@@ -213,10 +213,14 @@ def generate_launch_description():
         namespace='',
         executable='component_container_mt',
         composable_node_descriptions=IsaacROSYolov8LaunchFragment
-        .get_composable_nodes().values(),
+        .get_composable_nodes({
+            'camera_resolution': {'width': 1920, 'height': 1200}
+        }).values(),
         arguments=['--ros-args', '--log-level', 'INFO'],
         output='screen'
     )
 
     return launch.LaunchDescription(
-        [yolov8_container] + IsaacROSYolov8LaunchFragment.get_launch_actions().values())
+        [yolov8_container] + list(IsaacROSYolov8LaunchFragment.get_launch_actions({
+            'camera_resolution': {'width': 1920, 'height': 1200}
+        }).values()))

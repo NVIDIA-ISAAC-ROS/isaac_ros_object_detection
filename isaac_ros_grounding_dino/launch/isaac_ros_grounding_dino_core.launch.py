@@ -259,16 +259,19 @@ class IsaacROSGroundingDinoLaunchFragment(IsaacROSLaunchFragment):
 
 
 def generate_launch_description():
+    interface_specs = {
+        'camera_resolution': {'width': 1920, 'height': 1200}
+    }
     grounding_dino_container = ComposableNodeContainer(
         package='rclcpp_components',
         name='grounding_dino_container',
         namespace='',
         executable='component_container_mt',
         composable_node_descriptions=IsaacROSGroundingDinoLaunchFragment
-        .get_composable_nodes().values(),
+        .get_composable_nodes(interface_specs).values(),
         output='screen'
     )
 
     return launch.LaunchDescription(
         [grounding_dino_container] +
-        IsaacROSGroundingDinoLaunchFragment.get_launch_actions().values())
+        list(IsaacROSGroundingDinoLaunchFragment.get_launch_actions(interface_specs).values()))

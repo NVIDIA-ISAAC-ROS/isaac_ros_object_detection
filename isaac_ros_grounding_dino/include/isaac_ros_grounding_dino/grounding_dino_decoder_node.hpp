@@ -28,9 +28,9 @@
 #include "isaac_ros_common/qos.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
 #include "isaac_ros_grounding_dino_interfaces/srv/sync_data_with_decoder.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
-#include "isaac_ros_tensor_list_interfaces/msg/tensor_list.hpp"
+#include "isaac_ros_tensor_msgs/msg/tensor_list.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "tensor_msgs/msg/experimental_tensor.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
 
 namespace nvidia
@@ -40,7 +40,8 @@ namespace isaac_ros
 namespace grounding_dino
 {
 
-namespace Nitros = nvidia::isaac_ros::nitros;
+using Tensor = tensor_msgs::msg::ExperimentalTensor;
+using TensorList = isaac_ros_tensor_msgs::msg::TensorList;
 
 class GroundingDinoDecoderNode : public rclcpp::Node
 {
@@ -50,7 +51,7 @@ public:
   ~GroundingDinoDecoderNode();
 
 private:
-  void TensorCallback(const Nitros::NitrosTensorList::ConstSharedPtr & tensor_msg);
+  void TensorCallback(const TensorList::ConstSharedPtr & tensor_msg);
 
   // Service callback for synchronizing data between preprocessor and decoder
   void SyncDataWithDecoderCallback(
@@ -69,7 +70,7 @@ private:
   int image_width_;
   int image_height_;
   std::optional<std::vector<std::string>> class_ids_;
-  std::optional<isaac_ros_tensor_list_interfaces::msg::Tensor> pos_maps_;
+  std::optional<Tensor> pos_maps_;
 
   // Mutex to prevent race condition for accessing class ids and pos maps
   std::mutex mutex_;
@@ -79,7 +80,7 @@ private:
     isaac_ros_grounding_dino_interfaces::srv::SyncDataWithDecoder>::SharedPtr sync_data_service_;
 
   // Subscription to tensor input
-  rclcpp::Subscription<Nitros::NitrosTensorList>::SharedPtr tensor_sub_;
+  rclcpp::Subscription<TensorList>::SharedPtr tensor_sub_;
 
   // Publisher for output Detection2DArray messages
   rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr pub_;

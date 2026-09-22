@@ -54,7 +54,10 @@ set_target_properties(yolov8_decoder_node PROPERTIES
   BUILD_RPATH_USE_ORIGIN TRUE
   INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-target_link_libraries(yolov8_decoder_node ${OpenCV_LIBRARIES})
+target_link_libraries(yolov8_decoder_node
+  ${OpenCV_LIBRARIES}
+  CUDA::cudart
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

@@ -21,7 +21,7 @@ SPDX-License-Identifier: Apache-2.0
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>isaac_ros_detectnet</name>
-  <version>4.6.0</version>
+  <version>5.0.0</version>
   <description>DetectNet model processing</description>
 
   <maintainer email="isaac-ros-maintainers@nvidia.com">Isaac ROS Maintainers</maintainer>
@@ -35,21 +35,23 @@ SPDX-License-Identifier: Apache-2.0
 
   <depend>rclcpp</depend>
   <depend>rclcpp_components</depend>
-  <depend>std_msgs</depend>
   <depend>vision_msgs</depend>
-  <depend>isaac_ros_tensor_list_interfaces</depend>
-  <depend>isaac_ros_nitros_tensor_list_type</depend>
+  <depend>cuda_buffer</depend>
+  <depend>isaac_ros_tensor_msgs</depend>
+  <depend>tensor_msgs</depend>
 
-  <build_depend>isaac_ros_common</build_depend>
+  <depend>isaac_ros_common</depend>
 
   <exec_depend>cv_bridge</exec_depend>
   <exec_depend>isaac_ros_image_proc</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <test_depend>isaac_ros_test</test_depend>
   <test_depend>isaac_ros_dnn_image_encoder</test_depend>
   <test_depend>isaac_ros_triton</test_depend>
+  <test_depend>python3-torch-pip-shim</test_depend>
   <test_depend>tensorrt</test_depend>
 
   <export>

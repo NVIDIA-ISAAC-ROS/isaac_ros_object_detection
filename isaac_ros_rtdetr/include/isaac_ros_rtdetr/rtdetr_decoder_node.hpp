@@ -21,12 +21,12 @@
 #include <memory>
 #include <string>
 
-#include "rclcpp/rclcpp.hpp"
-
-#include "isaac_ros_common/qos.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
+#include "isaac_ros_common/qos.hpp"
+#include "isaac_ros_tensor_msgs/msg/tensor_list.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "tensor_msgs/msg/experimental_tensor.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 
 namespace nvidia
 {
@@ -34,6 +34,9 @@ namespace isaac_ros
 {
 namespace rtdetr
 {
+
+using Tensor = tensor_msgs::msg::ExperimentalTensor;
+using TensorList = isaac_ros_tensor_msgs::msg::TensorList;
 
 class RtDetrDecoderNode : public rclcpp::Node
 {
@@ -43,7 +46,7 @@ public:
   ~RtDetrDecoderNode();
 
 private:
-  void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorList & msg);
+  void InputCallback(const TensorList::ConstSharedPtr msg);
 
   // QOS settings
   const int16_t input_queue_size_;
@@ -53,8 +56,8 @@ private:
   std::string scores_tensor_name_{};
   double confidence_threshold_{};
 
-  // Subscriber and Publisher for input and output NitrosTensorList messages
-  rclcpp::Subscription<nvidia::isaac_ros::nitros::NitrosTensorList>::SharedPtr nitros_sub_;
+  // Subscriber and publisher for CUDA-backed tensor messages and detections.
+  rclcpp::Subscription<TensorList>::SharedPtr tensor_sub_;
   rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr detections_pub_;
 
   // CUDA Resources

@@ -159,6 +159,8 @@ def generate_launch_description():
         plugin='nvidia::isaac_ros::dnn_inference::ReshapeNode',
         parameters=[{
             'output_tensor_name': 'input_tensor',
+            'input_tensor_layout': 'CHW',
+            'output_tensor_layout': 'NCHW',
             'input_tensor_shape': [MODEL_NUM_CHANNELS, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE],
             'output_tensor_shape': [1, MODEL_NUM_CHANNELS, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE]
         }],

@@ -19,10 +19,15 @@
 
 #include <Eigen/Dense>
 #include <cmath>
+#include <cstdint>
+#include <limits>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
+#include "cuda_buffer/cuda_buffer_api.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
+#include "isaac_ros_tensor_msgs/tensor_utils.hpp"
 
 namespace nvidia
 {
@@ -37,22 +42,142 @@ static constexpr int kNumQueries = 900;           // Number of detection queries
 static constexpr int kNumTokens = 256;            // Number of text tokens
 constexpr const char kDefaultQoS[] = "DEFAULT";   // Default QoS profile
 
-template<typename T>
-std::vector<T> TensorToVector(
-  const Nitros::NitrosTensorList & tensor_list,
+size_t ElementCount(const Tensor & tensor)
+{
+  if (tensor.shape.empty()) {
+    throw std::invalid_argument("[GroundingDinoDecoderNode] Tensor shape is empty");
+  }
+  size_t count = 1;
+  for (const int64_t dimension : tensor.shape) {
+    if (dimension <= 0) {
+      throw std::invalid_argument("[GroundingDinoDecoderNode] Tensor dimensions must be positive");
+    }
+    const size_t extent = static_cast<size_t>(dimension);
+    if (count > std::numeric_limits<size_t>::max() / extent) {
+      throw std::overflow_error("[GroundingDinoDecoderNode] Tensor element count overflow");
+    }
+    count *= extent;
+  }
+  return count;
+}
+
+std::vector<float> TensorToVector(
+  const TensorList & tensor_list,
   const std::string & tensor_name, cudaStream_t stream)
 {
-  auto tensor_ptr = tensor_list.get_tensor_by_name(tensor_name);
-  if (tensor_ptr == nullptr) {
-    RCLCPP_ERROR(rclcpp::get_logger("GroundingDinoDecoderNode"), "Tensor is not found");
-    throw std::runtime_error("Tensor(" + tensor_name + ") is not found");
+  const Tensor * tensor = isaac_ros_tensor_msgs::FindTensorByName(tensor_list, tensor_name);
+  if (tensor == nullptr) {
+    throw std::runtime_error(
+            "[GroundingDinoDecoderNode] Tensor '" + tensor_name + "' is not found");
   }
-  const auto & tensor = *tensor_ptr;
-  std::vector<T> vector(tensor.element_count());
-  cudaMemcpyAsync(
-    vector.data(), tensor.get_read_handle(stream).get_ptr(),
-    tensor.tensor_size(), cudaMemcpyDefault, stream);
-  return vector;
+  constexpr uint8_t kDLPackFloat = 2;
+  if (tensor->dtype_code != kDLPackFloat || tensor->dtype_bits != 32 ||
+    tensor->dtype_lanes != 1)
+  {
+    throw std::invalid_argument(
+            "[GroundingDinoDecoderNode] Tensor '" + tensor_name + "' must be float32");
+  }
+
+  const size_t element_count = ElementCount(*tensor);
+  const size_t storage_count = isaac_ros_tensor_msgs::RequiredStorageElements(*tensor);
+  if (storage_count > std::numeric_limits<size_t>::max() / sizeof(float)) {
+    throw std::overflow_error("[GroundingDinoDecoderNode] Tensor byte size overflow");
+  }
+  const size_t byte_count = storage_count * sizeof(float);
+  if (tensor->byte_offset > tensor->data.size() ||
+    byte_count > tensor->data.size() - static_cast<size_t>(tensor->byte_offset))
+  {
+    throw std::invalid_argument(
+            "[GroundingDinoDecoderNode] Tensor '" + tensor_name + "' buffer is too small");
+  }
+
+  std::vector<float> storage(storage_count);
+  auto input_handle = cuda_buffer_backend::from_input_buffer(tensor->data, stream);
+  const cudaError_t copy_result = cudaMemcpyAsync(
+    storage.data(), input_handle.get_ptr() + tensor->byte_offset, byte_count,
+    cudaMemcpyDeviceToHost, stream);
+  if (copy_result != cudaSuccess) {
+    throw std::runtime_error(
+            std::string("[GroundingDinoDecoderNode] Device-to-host copy failed: ") +
+            cudaGetErrorString(copy_result));
+  }
+  const cudaError_t sync_result = cudaStreamSynchronize(stream);
+  if (sync_result != cudaSuccess) {
+    throw std::runtime_error(
+            std::string("[GroundingDinoDecoderNode] CUDA stream synchronization failed: ") +
+            cudaGetErrorString(sync_result));
+  }
+
+  if (tensor->strides.empty()) {
+    return storage;
+  }
+
+  std::vector<float> dense(element_count);
+  for (size_t linear_index = 0; linear_index < element_count; ++linear_index) {
+    size_t remainder = linear_index;
+    size_t storage_index = 0;
+    for (size_t dimension = tensor->shape.size(); dimension-- > 0; ) {
+      const size_t extent = static_cast<size_t>(tensor->shape[dimension]);
+      storage_index +=
+        (remainder % extent) * isaac_ros_tensor_msgs::StrideInElements(*tensor, dimension);
+      remainder /= extent;
+    }
+    dense[linear_index] = storage[storage_index];
+  }
+  return dense;
+}
+
+std::vector<uint8_t> TensorToUint8Vector(const Tensor & tensor, cudaStream_t stream)
+{
+  constexpr uint8_t kDLPackUInt = 1;
+  if (tensor.dtype_code != kDLPackUInt || tensor.dtype_bits != 8 || tensor.dtype_lanes != 1) {
+    throw std::invalid_argument(
+            "[GroundingDinoDecoderNode] Positive map tensor must be uint8");
+  }
+
+  const size_t element_count = ElementCount(tensor);
+  const size_t storage_count = isaac_ros_tensor_msgs::RequiredStorageElements(tensor);
+  if (tensor.byte_offset > tensor.data.size() ||
+    storage_count > tensor.data.size() - static_cast<size_t>(tensor.byte_offset))
+  {
+    throw std::invalid_argument(
+            "[GroundingDinoDecoderNode] Positive map tensor buffer is too small");
+  }
+
+  std::vector<uint8_t> storage(storage_count);
+  auto input_handle = cuda_buffer_backend::from_input_buffer(tensor.data, stream);
+  const cudaError_t copy_result = cudaMemcpyAsync(
+    storage.data(), input_handle.get_ptr() + tensor.byte_offset, storage_count,
+    cudaMemcpyDeviceToHost, stream);
+  if (copy_result != cudaSuccess) {
+    throw std::runtime_error(
+            std::string("[GroundingDinoDecoderNode] Device-to-host copy failed: ") +
+            cudaGetErrorString(copy_result));
+  }
+  const cudaError_t sync_result = cudaStreamSynchronize(stream);
+  if (sync_result != cudaSuccess) {
+    throw std::runtime_error(
+            std::string("[GroundingDinoDecoderNode] CUDA stream synchronization failed: ") +
+            cudaGetErrorString(sync_result));
+  }
+
+  if (tensor.strides.empty()) {
+    return storage;
+  }
+
+  std::vector<uint8_t> dense(element_count);
+  for (size_t linear_index = 0; linear_index < element_count; ++linear_index) {
+    size_t remainder = linear_index;
+    size_t storage_index = 0;
+    for (size_t dimension = tensor.shape.size(); dimension-- > 0; ) {
+      const size_t extent = static_cast<size_t>(tensor.shape[dimension]);
+      storage_index +=
+        (remainder % extent) * isaac_ros_tensor_msgs::StrideInElements(tensor, dimension);
+      remainder /= extent;
+    }
+    dense[linear_index] = storage[storage_index];
+  }
+  return dense;
 }
 
 float sigmoid(float x)
@@ -94,9 +219,10 @@ GroundingDinoDecoderNode::GroundingDinoDecoderNode(const rclcpp::NodeOptions & o
 
   rclcpp::SubscriptionOptions sub_options;
   sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  sub_options.acceptable_buffer_backends = "any";
   rclcpp::PublisherOptions pub_options;
   pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
-  tensor_sub_ = create_subscription<nvidia::isaac_ros::nitros::NitrosTensorList>(
+  tensor_sub_ = create_subscription<TensorList>(
     "tensor_sub", input_qos_,
     std::bind(&GroundingDinoDecoderNode::TensorCallback, this, std::placeholders::_1),
     sub_options);
@@ -138,8 +264,13 @@ void GroundingDinoDecoderNode::SyncDataWithDecoderCallback(
 }
 
 void GroundingDinoDecoderNode::TensorCallback(
-  const nvidia::isaac_ros::nitros::NitrosTensorList::ConstSharedPtr & tensor_msg)
+  const TensorList::ConstSharedPtr & tensor_msg)
 {
+  if (tensor_msg->names.size() != tensor_msg->tensors.size()) {
+    RCLCPP_ERROR(get_logger(), "Tensor names and tensors must have the same size");
+    return;
+  }
+
   std::lock_guard<std::mutex> lock(mutex_);
   if (!class_ids_.has_value()) {
     RCLCPP_INFO(get_logger(), "Class IDs not set");
@@ -152,37 +283,45 @@ void GroundingDinoDecoderNode::TensorCallback(
   }
 
   // Bring pred_logits and pred_boxes back to CPU
-  auto pred_logits = TensorToVector<float>(*tensor_msg, scores_tensor_name_,
-    *cuda_stream_);
-  auto pred_boxes = TensorToVector<float>(*tensor_msg, boxes_tensor_name_,
-    *cuda_stream_);
-  cudaStreamSynchronize(*cuda_stream_);
-
-  // Extract number of labels from pos_maps
-  int num_labels = pos_maps_.value().shape.dims[0];
-
-  // Convert pos_maps tensor data to vector
+  std::vector<float> pred_logits;
+  std::vector<float> pred_boxes;
   std::vector<uint8_t> pos_maps_data;
-  pos_maps_data.assign(pos_maps_.value().data.begin(), pos_maps_.value().data.end());
+  int num_labels;
+  try {
+    pred_logits = TensorToVector(*tensor_msg, scores_tensor_name_, *cuda_stream_);
+    pred_boxes = TensorToVector(*tensor_msg, boxes_tensor_name_, *cuda_stream_);
+    const Tensor & pos_maps = pos_maps_.value();
+    if (class_ids_->size() > std::numeric_limits<int>::max()) {
+      throw std::invalid_argument(
+              "[GroundingDinoDecoderNode] Class ID count exceeds the supported range");
+    }
+    num_labels = static_cast<int>(class_ids_->size());
+    if (num_labels > 0) {
+      pos_maps_data = TensorToUint8Vector(pos_maps, *cuda_stream_);
+    }
+  } catch (const std::exception & error) {
+    RCLCPP_ERROR(get_logger(), "%s", error.what());
+    return;
+  }
 
   // Ensure input tensors have the expected shape
   if (pred_logits.size() != kNumQueries * kNumTokens) {
     RCLCPP_ERROR(get_logger(),
       "Pred logits tensor size (%ld) does not match expected size (%d * %d = %d)",
       pred_logits.size(), kNumQueries, kNumTokens, kNumQueries * kNumTokens);
-    throw std::runtime_error("Invalid pred_logits tensor size");
+    return;
   }
   if (pos_maps_data.size() != static_cast<size_t>(num_labels) * kNumTokens) {
     RCLCPP_ERROR(get_logger(),
       "Positive map tensor size (%ld) does not match expected size (%d * %d = %d)",
       pos_maps_data.size(), num_labels, kNumTokens, num_labels * kNumTokens);
-    throw std::runtime_error("Invalid positive map tensor size");
+    return;
   }
   if (pred_boxes.size() != kNumQueries * 4) {
     RCLCPP_ERROR(get_logger(),
       "Pred boxes tensor size (%ld) does not match expected size (%d * 4 = %d)",
       pred_boxes.size(), kNumQueries, kNumQueries * 4);
-    throw std::runtime_error("Invalid pred_boxes tensor size");
+    return;
   }
 
   // Convert flat logits and positive maps to matrix form
@@ -198,9 +337,7 @@ void GroundingDinoDecoderNode::TensorCallback(
 
   // Create output message
   vision_msgs::msg::Detection2DArray detections;
-  detections.header.stamp.sec = tensor_msg->get_timestamp_sec();
-  detections.header.stamp.nanosec = tensor_msg->get_timestamp_nsec();
-  detections.header.frame_id = tensor_msg->get_frame_id();
+  detections.header = tensor_msg->header;
 
   // Iterate through all query-label combinations
   for (int query_idx = 0; query_idx < kNumQueries; ++query_idx) {

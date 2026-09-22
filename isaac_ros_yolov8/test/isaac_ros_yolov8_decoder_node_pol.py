@@ -18,7 +18,7 @@
 """
 Proof-Of-Life test for the Isaac ROS YOLOV8 Decoder Node package.
 
-    1. Sets up DnnImageEncoderNode, TensorRTNode
+    1. Sets up the DNN image encoder launch graph and TensorRTNode
     2. Loads a sample image and publishes it
     3. Subscribes to the relevant topics, waiting for an output from YoloV8DecoderNode
     4. Verifies that the output is recieved (based on dummy model)
@@ -32,7 +32,10 @@ import pathlib
 import tempfile
 import time
 
+from ament_index_python.packages import get_package_share_directory
 from isaac_ros_test import IsaacROSBaseTest, JSONConversion
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions.composable_node_container import ComposableNodeContainer
 from launch_ros.descriptions.composable_node import ComposableNode
 
@@ -62,35 +65,37 @@ def generate_test_description():
     model_dir_path = launch_dir_path + '/dummy_model'
     model_name = 'yolov8'
     model_file_path = f'{model_dir_path}/{model_name}/dummy_yolov8s.onnx'
-    dnn_image_encoder_node = ComposableNode(
-        name='dnn_image_encoder_node',
-        package='isaac_ros_dnn_image_encoder',
-        plugin='nvidia::isaac_ros::dnn_inference::DnnImageEncoderNode',
-        namespace=IsaacROSYoloV8POLTest.generate_namespace(_TEST_CASE_NAMESPACE),
-        parameters=[{
-            'input_image_width': 640,
-            'input_image_height': 640,
-            'network_image_width': 640,
-            'network_image_height': 640,
+    namespace = IsaacROSYoloV8POLTest.generate_namespace(_TEST_CASE_NAMESPACE)
+    dnn_image_encoder_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('isaac_ros_dnn_image_encoder'),
+                'launch',
+                'dnn_image_encoder.launch.py',
+            )
+        ),
+        launch_arguments={
+            'input_image_width': '640',
+            'input_image_height': '640',
+            'network_image_width': '640',
+            'network_image_height': '640',
             'input_encoding': 'bgr8',
-            'image_mean': [0.5, 0.6, 0.25],
-            'image_stddev': [0.25, 0.8, 0.5],
-            'enable_padding': True,
+            'image_mean': '[0.5, 0.6, 0.25]',
+            'image_stddev': '[0.25, 0.8, 0.5]',
+            'enable_padding': 'True',
+            'dnn_image_encoder_namespace': namespace,
+            'image_input_topic': 'image',
+            'camera_info_input_topic': 'camera_info',
             'tensor_output_topic': 'tensor_pub',
             'tensor_name': input_tensor_names[0],
-        }],
-        remappings=[
-            ('image', 'image'),
-            ('camera_info', 'camera_info'),
-            ('tensors', 'tensor_pub'),
-        ],
+        }.items(),
     )
 
     tensor_rt_node = ComposableNode(
         name='tensor_rt',
         package='isaac_ros_tensor_rt',
         plugin='nvidia::isaac_ros::dnn_inference::TensorRTNode',
-        namespace=IsaacROSYoloV8POLTest.generate_namespace(_TEST_CASE_NAMESPACE),
+        namespace=namespace,
         parameters=[{
             'model_file_path': model_file_path,
             'engine_file_path': engine_file_path,
@@ -107,7 +112,7 @@ def generate_test_description():
         name='yolov8_decoder_node',
         package='isaac_ros_yolov8',
         plugin='nvidia::isaac_ros::yolov8::YoloV8DecoderNode',
-        namespace=IsaacROSYoloV8POLTest.generate_namespace(_TEST_CASE_NAMESPACE),
+        namespace=namespace,
         parameters=[{
             'confidence_threshold': 0.25,
             'nms_threshold': 0.45,
@@ -119,14 +124,14 @@ def generate_test_description():
         package='rclcpp_components',
         executable='component_container_mt',
         composable_node_descriptions=[
-            dnn_image_encoder_node, tensor_rt_node, yolov8_decoder_node],
+            tensor_rt_node, yolov8_decoder_node],
         output='screen',
         arguments=['--ros-args', '--log-level', 'INFO'],
         namespace=''
     )
 
     return IsaacROSYoloV8POLTest.generate_test_description(
-        [tensor_rt_container])
+        [dnn_image_encoder_launch, tensor_rt_container])
 
 
 class IsaacROSYoloV8POLTest(IsaacROSBaseTest):

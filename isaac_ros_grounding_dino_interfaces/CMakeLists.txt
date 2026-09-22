@@ -33,7 +33,7 @@ set(SRV_FILES
 
 rosidl_generate_interfaces(${PROJECT_NAME}
 ${SRV_FILES}
-  DEPENDENCIES isaac_ros_tensor_list_interfaces std_msgs
+  DEPENDENCIES isaac_ros_tensor_msgs std_msgs tensor_msgs
 )
 ament_export_dependencies(rosidl_default_runtime)
 

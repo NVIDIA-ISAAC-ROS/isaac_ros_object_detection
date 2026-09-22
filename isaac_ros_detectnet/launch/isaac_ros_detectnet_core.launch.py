@@ -65,10 +65,8 @@ class IsaacROSDetectnetLaunchFragment(IsaacROSLaunchFragment):
                     'model_repository_paths': [model_dir_path],
                     'input_tensor_names': ['input_tensor'],
                     'input_binding_names': ['input_1:0'],
-                    'input_tensor_formats': ['nitros_tensor_list_nchw_rgb_f32'],
                     'output_tensor_names': ['output_cov', 'output_bbox'],
                     'output_binding_names': ['output_cov/Sigmoid:0', 'output_bbox/BiasAdd:0'],
-                    'output_tensor_formats': ['nitros_tensor_list_nhwc_rgb_f32'],
                     'log_level': 0
                 }]),
         }

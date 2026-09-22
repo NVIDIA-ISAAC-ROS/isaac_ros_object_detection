@@ -20,22 +20,22 @@
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <cmath>
-#include <iostream>
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
+#include "cuda_buffer/cuda_buffer_api.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
 #include "isaac_ros_common/qos.hpp"
-#include "isaac_ros_nitros/types/cuda_memory_pool.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor.hpp"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
+#include "isaac_ros_tensor_msgs/tensor_utils.hpp"
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/dnn.hpp>
 #include <opencv2/dnn/dnn.hpp>
 
 #include "vision_msgs/msg/detection2_d_array.hpp"
-#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
-
 
 namespace nvidia
 {
@@ -43,10 +43,68 @@ namespace isaac_ros
 {
 namespace yolov8
 {
+namespace
+{
+constexpr uint8_t kDLPackFloat = 2;
+constexpr size_t kBatchDimension = 0;
+constexpr size_t kFeatureDimension = 1;
+constexpr size_t kDetectionDimension = 2;
+constexpr int64_t kBoxParameters = 4;
+
+void ValidateTensor(const Tensor & tensor, int64_t num_classes)
+{
+  if (tensor.dtype_code != kDLPackFloat || tensor.dtype_bits != 32 ||
+    tensor.dtype_lanes != 1)
+  {
+    throw std::invalid_argument("[YoloV8DecoderNode] Input tensor must be float32");
+  }
+  if (tensor.shape.size() != 3) {
+    throw std::invalid_argument(
+            "[YoloV8DecoderNode] Input tensor must have shape [batch, features, detections]");
+  }
+  if (num_classes <= 0 ||
+    tensor.shape[kBatchDimension] != 1 ||
+    tensor.shape[kFeatureDimension] != kBoxParameters + num_classes ||
+    tensor.shape[kDetectionDimension] <= 0)
+  {
+    throw std::invalid_argument("[YoloV8DecoderNode] Input tensor has an unexpected shape");
+  }
+  if (tensor.shape[kDetectionDimension] > std::numeric_limits<int>::max()) {
+    throw std::overflow_error("[YoloV8DecoderNode] Detection dimension is too large");
+  }
+}
+
+std::vector<float> CopyTensorToHost(
+  const Tensor & tensor, cudaStream_t stream)
+{
+  const size_t element_count = isaac_ros_tensor_msgs::RequiredStorageElements(tensor);
+  if (element_count > std::numeric_limits<size_t>::max() / sizeof(float)) {
+    throw std::overflow_error("[YoloV8DecoderNode] Tensor byte size overflow");
+  }
+  const size_t byte_count = element_count * sizeof(float);
+  if (tensor.byte_offset > tensor.data.size() ||
+    byte_count > tensor.data.size() - static_cast<size_t>(tensor.byte_offset))
+  {
+    throw std::invalid_argument("[YoloV8DecoderNode] Tensor data buffer is too small");
+  }
+
+  std::vector<float> host_data(element_count);
+  auto input_handle = cuda_buffer_backend::from_input_buffer(tensor.data, stream);
+  const cudaError_t result = cudaMemcpyAsync(
+    host_data.data(), input_handle.get_ptr() + tensor.byte_offset, byte_count,
+    cudaMemcpyDeviceToHost, stream);
+  if (result != cudaSuccess) {
+    throw std::runtime_error(
+            std::string("[YoloV8DecoderNode] Device-to-host copy failed: ") +
+            cudaGetErrorString(result));
+  }
+  return host_data;
+}
+
+}  // namespace
+
 YoloV8DecoderNode::YoloV8DecoderNode(const rclcpp::NodeOptions options)
 : rclcpp::Node("yolov8_decoder_node", options),
-  memory_pool_block_size_(declare_parameter<int64_t>("memory_pool_block_size", 1920 * 1200 * 4)),
-  memory_pool_num_blocks_(declare_parameter<int64_t>("memory_pool_num_blocks", 40)),
   input_queue_size_(declare_parameter<int16_t>("input_queue_size", 10)),
   output_queue_size_(declare_parameter<int16_t>("output_queue_size", 10)),
   tensor_name_{declare_parameter<std::string>("tensor_name", "output_tensor")},
@@ -67,9 +125,10 @@ YoloV8DecoderNode::YoloV8DecoderNode(const rclcpp::NodeOptions options)
   // Create subscribers for input and output tensors
   rclcpp::SubscriptionOptions sub_options;
   sub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
+  sub_options.acceptable_buffer_backends = "any";
   rclcpp::PublisherOptions pub_options;
   pub_options.use_intra_process_comm = rclcpp::IntraProcessSetting::Enable;
-  nitros_sub_ = create_subscription<nvidia::isaac_ros::nitros::NitrosTensorList>(
+  tensor_sub_ = create_subscription<TensorList>(
     "tensor_sub", input_qos,
     std::bind(&YoloV8DecoderNode::InputCallback, this, std::placeholders::_1),
     sub_options);
@@ -83,48 +142,52 @@ YoloV8DecoderNode::YoloV8DecoderNode(const rclcpp::NodeOptions options)
 YoloV8DecoderNode::~YoloV8DecoderNode() = default;
 
 void YoloV8DecoderNode::InputCallback(
-  const nvidia::isaac_ros::nitros::NitrosTensorList::ConstSharedPtr msg
+  const TensorList::ConstSharedPtr msg
 )
 {
   RCLCPP_DEBUG(get_logger(), "[YoloV8DecoderNode] Received input tensor list");
-  std::shared_ptr<nvidia::isaac_ros::nitros::NitrosTensor> input_tensor =
-    msg->get_tensor_by_name(tensor_name_);
+  const Tensor * input_tensor = isaac_ros_tensor_msgs::FindTensorByName(*msg, tensor_name_);
   if (input_tensor == nullptr) {
     RCLCPP_ERROR(get_logger(), "[YoloV8DecoderNode] Input tensor %s not found",
       tensor_name_.c_str());
     return;
   }
 
-  const size_t buffer_size = input_tensor->tensor_size();
-  std::vector<float> results_vector{};
-  results_vector.resize(input_tensor->element_count());
-
-  auto input_handle = input_tensor->get_read_handle(*cuda_stream_);
-  const uint8_t * buffer_ptr = input_handle.get_ptr();
-  auto cuda_result = cudaMemcpyAsync(
-    results_vector.data(), buffer_ptr, buffer_size,
-    cudaMemcpyDefault, *cuda_stream_);
-  if (cuda_result != cudaSuccess) {
-    throw std::runtime_error("Failed to copy results from CUDA buffer");
+  std::vector<float> results_vector;
+  size_t feature_stride;
+  size_t detection_stride;
+  try {
+    ValidateTensor(*input_tensor, num_classes_);
+    feature_stride =
+      isaac_ros_tensor_msgs::StrideInElements(*input_tensor, kFeatureDimension);
+    detection_stride =
+      isaac_ros_tensor_msgs::StrideInElements(*input_tensor, kDetectionDimension);
+    results_vector = CopyTensorToHost(*input_tensor, *cuda_stream_);
+  } catch (const std::exception & error) {
+    RCLCPP_ERROR(get_logger(), "%s", error.what());
+    return;
   }
-  cuda_result = cudaStreamSynchronize(*cuda_stream_);
+
+  const cudaError_t cuda_result = cudaStreamSynchronize(*cuda_stream_);
   if (cuda_result != cudaSuccess) {
-    throw std::runtime_error("Failed to synchronize CUDA stream");
+    RCLCPP_ERROR(
+      get_logger(), "[YoloV8DecoderNode] Failed to synchronize CUDA stream: %s",
+      cudaGetErrorString(cuda_result));
+    return;
   }
   std::vector<cv::Rect> bboxes;
   std::vector<float> scores;
   std::vector<int> indices;
   std::vector<int> classes;
 
-  //  Output dimensions = [1, 84, 8400]
-  int out_dim = 8400;
-  float * results_data = reinterpret_cast<float *>(results_vector.data());
+  const int out_dim = static_cast<int>(input_tensor->shape[kDetectionDimension]);
 
   for (int i = 0; i < out_dim; i++) {
-    float x = *(results_data + i);
-    float y = *(results_data + (out_dim * 1) + i);
-    float w = *(results_data + (out_dim * 2) + i);
-    float h = *(results_data + (out_dim * 3) + i);
+    const size_t detection_offset = static_cast<size_t>(i) * detection_stride;
+    const float x = results_vector.at(detection_offset);
+    const float y = results_vector.at(feature_stride + detection_offset);
+    const float w = results_vector.at(2 * feature_stride + detection_offset);
+    const float h = results_vector.at(3 * feature_stride + detection_offset);
 
     float x1 = (x - (0.5 * w));
     float y1 = (y - (0.5 * h));
@@ -133,7 +196,9 @@ void YoloV8DecoderNode::InputCallback(
 
     std::vector<float> conf;
     for (int j = 0; j < num_classes_; j++) {
-      conf.push_back(*(results_data + (out_dim * (4 + j)) + i));
+      conf.push_back(
+        results_vector.at(
+          static_cast<size_t>(kBoxParameters + j) * feature_stride + detection_offset));
     }
 
     std::vector<float>::iterator ind_max_conf;
@@ -177,16 +242,12 @@ void YoloV8DecoderNode::InputCallback(
     hyp.hypothesis.score = scores.at(ind);
     detection.results.push_back(hyp);
 
-    detection.header.frame_id = msg->get_header().frame_id;
-    detection.header.stamp.sec = msg->get_header().stamp.sec;
-    detection.header.stamp.nanosec = msg->get_header().stamp.nanosec;
+    detection.header = msg->header;
 
     final_detections_arr.detections.push_back(detection);
   }
 
-  final_detections_arr.header.frame_id = msg->get_header().frame_id;
-  final_detections_arr.header.stamp.sec = msg->get_header().stamp.sec;
-  final_detections_arr.header.stamp.nanosec = msg->get_header().stamp.nanosec;
+  final_detections_arr.header = msg->header;
   pub_->publish(final_detections_arr);
 }
 

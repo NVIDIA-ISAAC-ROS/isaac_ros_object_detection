@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2021-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,26 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2DArray
 
+DETECTNET_DEFAULT_WIDTH = 960
+DETECTNET_DEFAULT_HEIGHT = 544
+
+
+def scale_bbox_to_image(center_x, center_y, width, height, image_width, image_height,
+                        network_image_width, network_image_height):
+    """Scale bounding box coordinates from DetectNet network space to image space."""
+    if network_image_width <= 0 or network_image_height <= 0:
+        raise ValueError('network image dimensions must be positive')
+
+    scale_x = float(image_width) / float(network_image_width)
+    scale_y = float(image_height) / float(network_image_height)
+
+    return (
+        center_x * scale_x,
+        center_y * scale_y,
+        width * scale_x,
+        height * scale_y,
+    )
+
 
 class DetectNetVisualizer(Node):
     QUEUE_SIZE = 10
@@ -39,6 +59,12 @@ class DetectNetVisualizer(Node):
 
     def __init__(self):
         super().__init__('detectnet_visualizer')
+        self.declare_parameter('network_image_width', DETECTNET_DEFAULT_WIDTH)
+        self.declare_parameter('network_image_height', DETECTNET_DEFAULT_HEIGHT)
+        self.network_image_width = self.get_parameter(
+            'network_image_width').get_parameter_value().integer_value
+        self.network_image_height = self.get_parameter(
+            'network_image_height').get_parameter_value().integer_value
         self._bridge = cv_bridge.CvBridge()
         self._processed_image_pub = self.create_publisher(
             Image, 'detectnet_processed_image',  self.QUEUE_SIZE)
@@ -65,6 +91,13 @@ class DetectNetVisualizer(Node):
             center_y = detection.bbox.center.position.y
             width = detection.bbox.size_x
             height = detection.bbox.size_y
+            try:
+                center_x, center_y, width, height = scale_bbox_to_image(
+                    center_x, center_y, width, height, img_msg.width, img_msg.height,
+                    self.network_image_width, self.network_image_height)
+            except ValueError as error:
+                self.get_logger().error(str(error), once=True)
+                return
 
             min_x = float(center_x - (width / 2.0))
             min_y = float(center_y - (height / 2.0))

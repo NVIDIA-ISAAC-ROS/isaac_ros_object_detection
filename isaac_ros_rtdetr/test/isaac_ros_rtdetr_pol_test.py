@@ -18,7 +18,8 @@
 """
 Proof-Of-Life test for the Isaac ROS RT-DETR package.
 
-    1. Sets up DnnImageEncoderNode, RtDetrPreprocessorNode, TensorRTNode, RtDetrDecoderNode
+    1. Sets up the DNN image encoder launch graph, RtDetrPreprocessorNode,
+       TensorRTNode, and RtDetrDecoderNode
     2. Loads a sample image and publishes it
     3. Subscribes to the relevant topics, waiting for an output from RtDetrDecoderNode
     4. Verifies that the received output sizes and encodings are correct (based on dummy model)
@@ -145,6 +146,8 @@ def generate_test_description():
         namespace=IsaacROSRtDetrPOLTest.generate_namespace(),
         parameters=[{
             'output_tensor_name': 'input_tensor',
+            'input_tensor_layout': 'CHW',
+            'output_tensor_layout': 'NCHW',
             'input_tensor_shape': [3, 640, 640],
             'output_tensor_shape': [1, 3, 640, 640]
         }],

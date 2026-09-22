@@ -23,9 +23,10 @@
 #include <vector>
 
 #include "deepstream_utils/nvdsinferutils/include/nvdsinfer_dbscan.h"
-#include "isaac_ros_nitros_tensor_list_type/nitros_tensor_list.hpp"
 #include "isaac_ros_common/cuda_stream.hpp"
+#include "isaac_ros_tensor_msgs/msg/tensor_list.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "tensor_msgs/msg/experimental_tensor.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
 
 namespace nvidia
@@ -35,6 +36,9 @@ namespace isaac_ros
 namespace detectnet
 {
 
+using Tensor = tensor_msgs::msg::ExperimentalTensor;
+using TensorList = isaac_ros_tensor_msgs::msg::TensorList;
+
 class DetectNetDecoderNode : public rclcpp::Node
 {
 public:
@@ -43,7 +47,7 @@ public:
   ~DetectNetDecoderNode();
 
 private:
-  void InputCallback(const nvidia::isaac_ros::nitros::NitrosTensorList::ConstSharedPtr msg);
+  void InputCallback(const TensorList::ConstSharedPtr msg);
 
   // List of string labels for the specific network
   const std::vector<std::string> label_list_;
@@ -78,14 +82,14 @@ private:
   const double bounding_box_scale_;
   // Bounding box offset for both X and Y dimensions
   const double bounding_box_offset_;
-  // Tensor names inside the incoming NitrosTensorList (match Triton / graph output names)
+  // Tensor names inside the incoming TensorList (match inference output names).
   const std::string cov_tensor_name_;
   const std::string bbox_tensor_name_;
 
   const int16_t input_queue_size_;
   const int16_t output_queue_size_;
 
-  rclcpp::Subscription<nvidia::isaac_ros::nitros::NitrosTensorList>::SharedPtr nitros_sub_;
+  rclcpp::Subscription<TensorList>::SharedPtr tensor_sub_;
   rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr pub_;
 
   nvidia::isaac_ros::common::CudaStreamPtr cuda_stream_;

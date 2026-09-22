@@ -26,6 +26,7 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 find_package(ament_cmake_python REQUIRED)
 
+find_package(CUDAToolkit REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 # DetectNetDecoderNode
@@ -44,7 +45,10 @@ target_include_directories(detectnet_decoder_node PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/deepstream_utils/nvdsinferutils/dbscan
 )
 
-target_link_libraries(detectnet_decoder_node Eigen3::Eigen)
+target_link_libraries(detectnet_decoder_node
+  Eigen3::Eigen
+  CUDA::cudart
+)
 
 rclcpp_components_register_nodes(detectnet_decoder_node "nvidia::isaac_ros::detectnet::DetectNetDecoderNode")
 set(node_plugins "${node_plugins}nvidia::isaac_ros::detectnet::DetectNetDecoderNode;$<TARGET_FILE:detectnet_decoder_node>\n")
